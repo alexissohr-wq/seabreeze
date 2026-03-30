@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Breezy - Sea Breeze Propane Assistant (Beta v2)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,500;1,400&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--sb-teal:#0F6E56;--sb-teal-light:#E1F5EE;--sb-teal-mid:#1D9E75;--sb-teal-dark:#085041;--sb-sky-light:#E6F1FB;--sb-sand-light:#FAEEDA;--sb-bg:#f7faf9;--sb-surface:#f0f5f3;--sb-card:#fff;--sb-text:#1a2e28;--sb-muted:#5a7a6e;--sb-border:rgba(15,110,86,0.15);--sb-radius:18px;--sb-font:"DM Sans",sans-serif}
+body{font-family:var(--sb-font);background:var(--sb-bg);min-height:100vh;display:flex;flex-direction:column;align-items:center}
+.topbar{width:100%;background:var(--sb-teal);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar-brand{display:flex;align-items:center;gap:10px;color:#fff;font-size:15px;font-weight:600}
+.topbar-logo{width:32px;height:32px;background:rgba(255,255,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.topbar-logo svg{width:18px;height:18px;fill:#fff}
+.topbar-badges{display:flex;gap:8px;align-items:center}
+.topbar-badge{background:rgba(255,255,255,0.2);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500}
+.topbar-badge-ai{background:rgba(255,255,255,0.35);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600}
+.hero{text-align:center;padding:36px 24px 20px;max-width:600px;width:100%}
+.hero-tag{display:inline-block;background:var(--sb-teal-light);color:var(--sb-teal-dark);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:14px}
+.hero h1{font-family:"Fraunces",serif;font-size:clamp(26px,5vw,36px);font-weight:500;color:var(--sb-text);line-height:1.25;margin-bottom:12px}
+.hero h1 em{font-style:italic;color:var(--sb-teal)}
+.hero p{font-size:15px;color:var(--sb-muted);line-height:1.65;max-width:440px;margin:0 auto 20px}
+.hero-features{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:28px}
+.hero-feat{background:var(--sb-card);border:.5px solid var(--sb-border);border-radius:20px;padding:5px 13px;font-size:12px;color:var(--sb-muted);font-weight:500}
+.widget-wrap{width:100%;max-width:460px;padding:0 16px 40px}
+.sbw-widget{border-radius:var(--sb-radius);border:.5px solid var(--sb-border);background:var(--sb-card);overflow:hidden;display:flex;flex-direction:column;height:600px;box-shadow:0 4px 32px rgba(15,110,86,.10)}
+.sbw-header{background:var(--sb-teal);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.sbw-avatar{width:42px;height:42px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sbw-avatar svg{width:22px;height:22px;fill:#fff}
+.sbw-header-info{flex:1}
+.sbw-header-name{color:#fff;font-size:15px;font-weight:600;line-height:1.3}
+.sbw-header-status{color:rgba(255,255,255,.75);font-size:12px;display:flex;align-items:center;gap:5px;margin-top:1px}
+.sbw-status-dot{width:7px;height:7px;background:#9FE1CB;border-radius:50%;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.sbw-header-reset{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.65);font-size:13px;padding:4px 8px;border-radius:6px;font-family:var(--sb-font)}
+.sbw-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin}
+.sbw-msg{display:flex;gap:8px;align-items:flex-end;animation:sbfade .22s ease}
+@keyframes sbfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.sbw-msg-bot{align-self:flex-start;max-width:90%}
+.sbw-msg-user{align-self:flex-end;flex-direction:row-reverse;max-width:90%}
+.sbw-bubble{padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.6;color:var(--sb-text)}
+.sbw-msg-bot .sbw-bubble{background:var(--sb-surface);border-bottom-left-radius:4px;border:.5px solid var(--sb-border)}
+.sbw-msg-user .sbw-bubble{background:var(--sb-teal);color:#fff;border-bottom-right-radius:4px}
+.sbw-chips{display:flex;flex-wrap:wrap;gap:7px;padding:4px 16px 10px;flex-shrink:0}
+.sbw-chip{background:var(--sb-teal-light);color:var(--sb-teal-dark);border:.5px solid #9FE1CB;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sb-font);transition:background .12s,transform .1s;white-space:nowrap}
+.sbw-chip:hover{background:#9FE1CB;transform:scale(1.02)}
+.sbw-chip-sky{background:var(--sb-sky-light);color:#0C447C;border-color:#B5D4F4}
+.sbw-chip-sky:hover{background:#B5D4F4}
+.sbw-chip-sand{background:var(--sb-sand-light);color:#633806;border-color:#FAC775}
+.sbw-chip-sand:hover{background:#FAC775}
+.sbw-input-row{display:flex;gap:8px;padding:10px 14px 14px;flex-shrink:0;border-top:.5px solid var(--sb-border);background:var(--sb-card)}
+.sbw-input{flex:1;border:.5px solid var(--sb-border);border-radius:22px;padding:9px 16px;font-size:14px;font-family:var(--sb-font);background:var(--sb-surface);color:var(--sb-text);outline:none;transition:border-color .15s}
+.sbw-input:focus{border-color:var(--sb-teal-mid)}
+.sbw-input::placeholder{color:var(--sb-muted)}
+.sbw-input:disabled{opacity:.5;cursor:not-allowed}
+.sbw-send{width:38px;height:38px;background:var(--sb-teal);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .12s,transform .1s}
+.sbw-send:hover:not(:disabled){background:var(--sb-teal-dark);transform:scale(1.05)}
+.sbw-send:disabled{opacity:.5;cursor:not-allowed}
+.sbw-send svg{width:16px;height:16px;fill:#fff}
+.sbw-typing-wrap{background:var(--sb-surface);border-radius:16px;border-bottom-left-radius:4px;border:.5px solid var(--sb-border);width:fit-content;padding:10px 14px}
+.sbw-typing{display:flex;gap:4px;align-items:center}
+.sbw-typing span{width:7px;height:7px;background:#9FE1CB;border-radius:50%;display:inline-block;animation:sbbounce 1.2s infinite}
+.sbw-typing span:nth-child(2){animation-delay:.2s}
+.sbw-typing span:nth-child(3){animation-delay:.4s}
+@keyframes sbbounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.sbw-error{background:#FCEBEB;border:.5px solid #F7C1C1;border-radius:12px;padding:10px 14px;font-size:13px;color:#A32D2D;margin:0 16px 10px}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;max-width:460px;width:100%;padding:0 16px 24px}
+.info-card{background:var(--sb-card);border:.5px solid var(--sb-border);border-radius:12px;padding:14px;text-align:center}
+.info-card-icon{font-size:20px;margin-bottom:6px}
+.info-card-label{font-size:11px;font-weight:600;color:var(--sb-teal-dark);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.info-card-val{font-size:13px;color:var(--sb-muted)}
+.footer{width:100%;text-align:center;padding:16px 24px 32px;font-size:12px;color:var(--sb-muted)}
+.footer a,.sbw-link{color:var(--sb-teal-mid);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-logo"><svg viewBox="0 0 24 24"><path d="M17.66 7.93L12 2.27 6.34 7.93c-3.12 3.12-3.12 8.19 0 11.31C7.9 20.8 9.95 21.58 12 21.58c2.05 0 4.1-.78 5.66-2.34 3.12-3.12 3.12-8.19 0-11.31z"/></svg></div>
+    Sea Breeze Propane
+  </div>
+  <div class="topbar-badges">
+    <span class="topbar-badge-ai">AI Powered</span>
+    <span class="topbar-badge">Beta v2</span>
+  </div>
+</div>
+<div class="hero">
+  <div class="hero-tag">Team Beta v2</div>
+  <h1>Meet <em>Breezy</em>,<br>now powered by AI</h1>
+  <p>Breezy now understands natural language, remembers your conversation, handles objections, and qualifies commercial leads intelligently.</p>
+  <div class="hero-features">
+    <span class="hero-feat">Conversational memory</span>
+    <span class="hero-feat">Objection handling</span>
+    <span class="hero-feat">Commercial intent detection</span>
+    <span class="hero-feat">Explains recommendations</span>
+    <span class="hero-feat">24/7 lead capture</span>
+  </div>
+</div>
+<div class="info-grid">
+  <div class="info-card"><div class="info-card-icon">&#129504;</div><div class="info-card-label">AI Brain</div><div class="info-card-val">Powered by Claude</div></div>
+  <div class="info-card"><div class="info-card-icon">&#128172;</div><div class="info-card-label">Natural language</div><div class="info-card-val">Talk freely</div></div>
+  <div class="info-card"><div class="info-card-icon">&#127919;</div><div class="info-card-label">Smart routing</div><div class="info-card-val">High-value lead priority</div></div>
+</div>
+<div class="widget-wrap">
+  <div class="sbw-widget">
+    <div class="sbw-header">
+      <div class="sbw-avatar"><svg viewBox="0 0 24 24"><path d="M17.66 7.93L12 2.27 6.34 7.93c-3.12 3.12-3.12 8.19 0 11.31C7.9 20.8 9.95 21.58 12 21.58c2.05 0 4.1-.78 5.66-2.34 3.12-3.12 3.12-8.19 0-11.31z"/></svg></div>
+      <div class="sbw-header-info">
+        <div class="sbw-header-name">Breezy - Sea Breeze Propane</div>
+        <div class="sbw-header-status"><span class="sbw-status-dot"></span>AI Assistant - Northeast Florida</div>
+      </div>
+      <button class="sbw-header-reset" onclick="resetChat()">Reset</button>
+    </div>
+    <div class="sbw-messages" id="messages"></div>
+    <div class="sbw-chips" id="chips"></div>
+    <div class="sbw-input-row">
+      <input class="sbw-input" id="userInput" placeholder="Ask me anything about propane..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)handleSend()"/>
+      <button class="sbw-send" id="sendBtn" onclick="handleSend()"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+    </div>
+  </div>
+</div>
+<div class="footer">Beta v2 - internal team review &nbsp;&middot;&nbsp; <a href="https://seabreezelp.com" target="_blank">seabreezelp.com</a> &nbsp;&middot;&nbsp; Powered by Claude AI</div>
+<script>
+var SYS="You are Breezy, the friendly AI assistant for Sea Breeze Propane, serving Northeast Florida. Personality: warm, local, knowledgeable - like a helpful neighbor who knows propane. Goals: 1) Build trust by explaining reasoning 2) Understand situation before recommending 3) Qualify leads with smart questions 4) Capture contact info AFTER being helpful 5) Prioritize high-value commercial leads. Tank sizing: 120gal=single appliance (generator/water heater/grill), 250gal=light home heating, 500gal=full home most popular covers HVAC plus water plus cooking in 1500-3000sqft, 1000gal=large homes 3000sqft plus. Always explain WHY you recommend a size. Key factors: home size, number of appliances, usage frequency. Commercial: forklifts, fleet, warehouses - recognize immediately, ask qualifying questions (fleet size, volume, current provider, urgency), promise specialist callback within 2 hours. Objections: address directly and honestly, never reset to a menu. Example: if asked why that tank size, explain the reasoning. If they say it seems too big, explain tradeoffs honestly. Lead capture: ask for name then email then phone, only after being genuinely helpful first. Format: conversational 2-4 sentences, end with a question or next step. Never use dash bullet points. Service area: Northeast Florida including Duval, Nassau, St Johns, Clay, Baker counties. For out of area, offer expansion waitlist.";
+var ch=[],loading=false;
+var msgs=document.getElementById("messages"),chips=document.getElementById("chips"),inp=document.getElementById("userInput"),btn=document.getElementById("sendBtn");
+function setL(on){loading=on;inp.disabled=on;btn.disabled=on;inp.placeholder=on?"Breezy is thinking...":"Ask me anything about propane...";}
+function addMsg(html,role){var d=document.createElement("div");d.className="sbw-msg sbw-msg-"+role;var b=document.createElement("div");b.className="sbw-bubble";if(role==="bot"){b.innerHTML=html;}else{b.textContent=html;}d.appendChild(b);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}
+function addTyping(){var d=document.createElement("div");d.className="sbw-msg sbw-msg-bot";d.id="typ";var t=document.createElement("div");t.className="sbw-typing-wrap";t.innerHTML='<div class="sbw-typing"><span></span><span></span><span></span></div>';d.appendChild(t);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}
+function rmTyping(){var t=document.getElementById("typ");if(t)t.remove();}
+function setChips(list){chips.innerHTML="";if(!list||!list.length)return;list.forEach(function(c){var b=document.createElement("button");b.className="sbw-chip "+(c.s||"");b.textContent=c.l;b.onclick=function(){chips.innerHTML="";sendMsg(c.l);};chips.appendChild(b);});}
+function fmt(t){return t.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br>");}
+async function callAPI(msg){
+  ch.push({role:"user",content:msg});
+  var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:SYS,messages:ch})});
+  if(!r.ok)throw new Error(r.status);
+  var d=await r.json();var txt=d.content[0].text;
+  ch.push({role:"assistant",content:txt});return txt;
+}
+async function sendMsg(text){
+  if(!text||!text.trim()||loading)return;
+  addMsg(text,"user");chips.innerHTML="";setL(true);addTyping();
+  try{
+    var res=await callAPI(text);rmTyping();addMsg(fmt(res),"bot");
+    var lo=res.toLowerCase();
+    if(lo.indexOf("all set")>-1||lo.indexOf("reach out")>-1){setChips([{l:"Schedule a site visit",s:"sbw-chip-sky"},{l:"Tank size guide"},{l:"Pricing details",s:"sbw-chip-sand"}]);}
+    else if(lo.indexOf("forklift")>-1||lo.indexOf("fleet")>-1||lo.indexOf("specialist")>-1){setChips([{l:"Schedule a consultation",s:"sbw-chip-sky"},{l:"Tell me about cylinder exchange"},{l:"Bulk tank options",s:"sbw-chip-sand"}]);}
+    else if((lo.indexOf("gallon")>-1||lo.indexOf("tank")>-1)&&(lo.indexOf("recommend")>-1||lo.indexOf("suggest")>-1)){setChips([{l:"Why that size?"},{l:"What if my usage is lighter?"},{l:"Get started",s:"sbw-chip-sky"}]);}
+    else if(ch.length<=2){setChips([{l:"Check my service area"},{l:"What size tank do I need?"},{l:"Pricing info",s:"sbw-chip-sand"},{l:"Commercial inquiry",s:"sbw-chip-sky"}]);}
+  }catch(e){
+    rmTyping();var ed=document.createElement("div");ed.className="sbw-error";ed.textContent="Something went wrong. Please try again.";msgs.appendChild(ed);msgs.scrollTop=msgs.scrollHeight;ch.pop();
+  }
+  setL(false);inp.focus();
+}
+function handleSend(){var v=inp.value.trim();if(!v||loading)return;inp.value="";sendMsg(v);}
+async function resetChat(){ch=[];msgs.innerHTML="";chips.innerHTML="";setL(false);await startChat();}
+async function startChat(){
+  setL(true);addTyping();
+  try{
+    var o=await callAPI("Hello! Give me a warm natural 2-sentence opening greeting as Breezy for Sea Breeze Propane. Be welcoming and invite them to share what they need. Do not list features robotically.");
+    rmTyping();addMsg(fmt(o),"bot");
+  }catch(e){
+    rmTyping();addMsg("Hi there! I am Breezy, your Sea Breeze Propane assistant. What can I help you with today?","bot");
+  }
+  setChips([{l:"Check my service area"},{l:"What size tank do I need?"},{l:"Pricing info",s:"sbw-chip-sand"},{l:"Commercial inquiry",s:"sbw-chip-sky"}]);
+  setL(false);
+}
+startChat();
+</script>
+</body>
+</html>

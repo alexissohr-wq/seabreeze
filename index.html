@@ -1,111 +1,102 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Breezy - Sea Breeze Propane (Beta v2)</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Tank the Turtle - Sea Breeze Propane (Beta v2)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,500;1,400&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--t:#0F6E56;--tl:#E1F5EE;--tm:#1D9E75;--td:#085041;--sl:#E6F1FB;--sal:#FAEEDA;--bg:#f7faf9;--su:#f0f5f3;--c:#fff;--tx:#1a2e28;--mu:#5a7a6e;--b:rgba(15,110,86,0.15)}
-body{font-family:"DM Sans",sans-serif;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;align-items:center}
-.bar{width:100%;background:var(--t);padding:10px 24px;display:flex;align-items:center;justify-content:space-between}
-.brand{display:flex;align-items:center;gap:10px;color:#fff;font-size:15px;font-weight:600}
-.logo{width:32px;height:32px;background:rgba(255,255,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center}
-.logo svg{width:18px;height:18px;fill:#fff}
-.badges{display:flex;gap:8px}
-.ba{background:rgba(255,255,255,0.2);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500}
-.bai{background:rgba(255,255,255,0.35);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600}
+:root{--t:#0F6E56;--tl:#E1F5EE;--tm:#1D9E75;--td:#085041;--sl:#E6F1FB;--sal:#FAEEDA;--bg:#f7faf9;--su:#f0f5f3;--c:#fff;--tx:#1a2e28;--mu:#5a7a6e;--b:rgba(15,110,86,0.15);--r:18px;--f:"DM Sans",sans-serif}
+body{font-family:var(--f);background:var(--bg);min-height:100vh;display:flex;flex-direction:column;align-items:center}
+.topbar{width:100%;background:var(--t);padding:10px 24px;display:flex;align-items:center;justify-content:space-between}
+.topbar-brand{display:flex;align-items:center;gap:10px;color:#fff;font-size:15px;font-weight:600}
+.topbar-logo{width:32px;height:32px;background:rgba(255,255,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.topbar-logo svg{width:18px;height:18px;fill:#fff}
+.tb{background:rgba(255,255,255,0.2);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500}
+.tba{background:rgba(255,255,255,0.35);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600}
 .hero{text-align:center;padding:36px 24px 20px;max-width:600px;width:100%}
-.tag{display:inline-block;background:var(--tl);color:var(--td);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;text-transform:uppercase;margin-bottom:14px}
-.hero h1{font-size:clamp(26px,5vw,36px);font-weight:500;color:var(--tx);line-height:1.25;margin-bottom:12px}
+.hero-tag{display:inline-block;background:var(--tl);color:var(--td);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;text-transform:uppercase;margin-bottom:14px}
+.hero h1{font-family:"Fraunces",serif;font-size:clamp(26px,5vw,36px);font-weight:500;color:var(--tx);line-height:1.25;margin-bottom:12px}
 .hero h1 em{font-style:italic;color:var(--t)}
 .hero p{font-size:15px;color:var(--mu);line-height:1.65;max-width:440px;margin:0 auto 20px}
-.feats{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:28px}
-.feat{background:var(--c);border:.5px solid var(--b);border-radius:20px;padding:5px 13px;font-size:12px;color:var(--mu);font-weight:500}
+.hf{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:28px}
+.hff{background:var(--c);border:.5px solid var(--b);border-radius:20px;padding:5px 13px;font-size:12px;color:var(--mu);font-weight:500}
 .ww{width:100%;max-width:460px;padding:0 16px 40px}
-.widget{border-radius:18px;border:.5px solid var(--b);background:var(--c);overflow:hidden;display:flex;flex-direction:column;height:600px;box-shadow:0 4px 32px rgba(15,110,86,.10)}
-.hdr{background:var(--t);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-shrink:0}
-.av{width:42px;height:42px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.av svg{width:22px;height:22px;fill:#fff}
-.hi{flex:1}
-.hn{color:#fff;font-size:15px;font-weight:600;line-height:1.3}
-.hs{color:rgba(255,255,255,.75);font-size:12px;display:flex;align-items:center;gap:5px;margin-top:1px}
-.dot{width:7px;height:7px;background:#9FE1CB;border-radius:50%;display:inline-block;animation:pulse 2s infinite}
+.sw{border-radius:var(--r);border:.5px solid var(--b);background:var(--c);overflow:hidden;display:flex;flex-direction:column;height:600px;box-shadow:0 4px 32px rgba(15,110,86,.10)}
+.sh{background:var(--t);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.sa{width:42px;height:42px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sa svg{width:22px;height:22px;fill:#fff}
+.shi{flex:1}
+.shn{color:#fff;font-size:15px;font-weight:600;line-height:1.3}
+.shs{color:rgba(255,255,255,.75);font-size:12px;display:flex;align-items:center;gap:5px;margin-top:1px}
+.sd{width:7px;height:7px;background:#9FE1CB;border-radius:50%;display:inline-block;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.rst{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.65);font-size:13px;padding:4px 8px;border-radius:6px}
-.msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
-.m{display:flex;gap:8px;align-items:flex-end;animation:fa .22s ease}
-@keyframes fa{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.sr{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.65);font-size:13px;padding:4px 8px;border-radius:6px;font-family:var(--f)}
+.sm{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{display:flex;gap:8px;align-items:flex-end;animation:sf .22s ease}
+@keyframes sf{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .mb{align-self:flex-start;max-width:90%}
-.mu{align-self:flex-end;flex-direction:row-reverse;max-width:90%}
-.bub{padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.6;color:var(--tx)}
-.mb .bub{background:var(--su);border-bottom-left-radius:4px;border:.5px solid var(--b)}
-.mu .bub{background:var(--t);color:#fff;border-bottom-right-radius:4px}
-.chips{display:flex;flex-wrap:wrap;gap:7px;padding:4px 16px 10px;flex-shrink:0}
-.chip{background:var(--tl);color:var(--td);border:.5px solid #9FE1CB;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.mu2{align-self:flex-end;flex-direction:row-reverse;max-width:90%}
+.bb{padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.6;color:var(--tx)}
+.mb .bb{background:var(--su);border-bottom-left-radius:4px;border:.5px solid var(--b)}
+.mu2 .bb{background:var(--t);color:#fff;border-bottom-right-radius:4px}
+.sc{display:flex;flex-wrap:wrap;gap:7px;padding:4px 16px 10px;flex-shrink:0}
+.chip{background:var(--tl);color:var(--td);border:.5px solid #9FE1CB;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--f);white-space:nowrap}
 .csky{background:var(--sl);color:#0C447C;border-color:#B5D4F4}
-.csnd{background:var(--sal);color:#633806;border-color:#FAC775}
-.irow{display:flex;gap:8px;padding:10px 14px 14px;flex-shrink:0;border-top:.5px solid var(--b);background:var(--c)}
-.inp{flex:1;border:.5px solid var(--b);border-radius:22px;padding:9px 16px;font-size:14px;background:var(--su);color:var(--tx);outline:none}
-.inp:disabled{opacity:.5}
-.snd{width:38px;height:38px;background:var(--t);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.snd:disabled{opacity:.5}
-.snd svg{width:16px;height:16px;fill:#fff}
+.csand{background:var(--sal);color:#633806;border-color:#FAC775}
+.sir{display:flex;gap:8px;padding:10px 14px 14px;flex-shrink:0;border-top:.5px solid var(--b);background:var(--c)}
+.si{flex:1;border:.5px solid var(--b);border-radius:22px;padding:9px 16px;font-size:14px;font-family:var(--f);background:var(--su);color:var(--tx);outline:none}
+.si:disabled{opacity:.5}
+.ss{width:38px;height:38px;background:var(--t);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ss:disabled{opacity:.5}
+.ss svg{width:16px;height:16px;fill:#fff}
 .tw{background:var(--su);border-radius:16px;border-bottom-left-radius:4px;border:.5px solid var(--b);width:fit-content;padding:10px 14px}
 .tp{display:flex;gap:4px;align-items:center}
-.tp span{width:7px;height:7px;background:#9FE1CB;border-radius:50%;display:inline-block;animation:bo 1.2s infinite}
+.tp span{width:7px;height:7px;background:#9FE1CB;border-radius:50%;display:inline-block;animation:sb 1.2s infinite}
 .tp span:nth-child(2){animation-delay:.2s}.tp span:nth-child(3){animation-delay:.4s}
-@keyframes bo{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
-.er{background:#FCEBEB;border:.5px solid #F7C1C1;border-radius:12px;padding:10px 14px;font-size:13px;color:#A32D2D;margin:0 16px 10px}
+@keyframes sb{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.err{background:#FCEBEB;border:.5px solid #F7C1C1;border-radius:12px;padding:10px 14px;font-size:13px;color:#A32D2D;margin:0 16px 10px}
 .ig{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;max-width:460px;width:100%;padding:0 16px 24px}
 .ic{background:var(--c);border:.5px solid var(--b);border-radius:12px;padding:14px;text-align:center}
-.ico{font-size:20px;margin-bottom:6px}
+.ici{font-size:20px;margin-bottom:6px}
 .icl{font-size:11px;font-weight:600;color:var(--td);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 .icv{font-size:13px;color:var(--mu)}
-.foot{width:100%;text-align:center;padding:16px 24px 32px;font-size:12px;color:var(--mu)}
-.foot a{color:var(--tm);text-decoration:none}
+.footer{width:100%;text-align:center;padding:16px 24px 32px;font-size:12px;color:var(--mu)}
+.footer a{color:var(--tm);text-decoration:none}
 </style></head><body>
-<div class="bar">
-<div class="brand"><div class="logo"><svg viewBox="0 0 24 24"><path d="M17.66 7.93L12 2.27 6.34 7.93c-3.12 3.12-3.12 8.19 0 11.31C7.9 20.8 9.95 21.58 12 21.58c2.05 0 4.1-.78 5.66-2.34 3.12-3.12 3.12-8.19 0-11.31z"/></svg></div>Sea Breeze Propane</div>
-<div class="badges"><span class="bai">AI Powered</span><span class="ba">Beta v2</span></div>
-</div>
-<div class="hero">
-<div class="tag">Team Beta v2</div>
-<h1>Meet <em>Breezy</em>,<br>now powered by AI</h1>
-<p>Breezy understands natural language, remembers your conversation, handles objections, and qualifies commercial leads intelligently.</p>
-<div class="feats"><span class="feat">Conversational memory</span><span class="feat">Objection handling</span><span class="feat">Commercial intent detection</span><span class="feat">Explains recommendations</span></div>
-</div>
-<div class="ig">
-<div class="ic"><div class="ico">&#129504;</div><div class="icl">AI Brain</div><div class="icv">Powered by Claude</div></div>
-<div class="ic"><div class="ico">&#128172;</div><div class="icl">Natural language</div><div class="icv">Talk freely</div></div>
-<div class="ic"><div class="ico">&#127919;</div><div class="icl">Smart routing</div><div class="icv">High-value leads first</div></div>
-</div>
-<div class="ww"><div class="widget">
-<div class="hdr">
-<div class="av"><svg viewBox="0 0 24 24"><path d="M17.66 7.93L12 2.27 6.34 7.93c-3.12 3.12-3.12 8.19 0 11.31C7.9 20.8 9.95 21.58 12 21.58c2.05 0 4.1-.78 5.66-2.34 3.12-3.12 3.12-8.19 0-11.31z"/></svg></div>
-<div class="hi"><div class="hn">Breezy - Sea Breeze Propane</div><div class="hs"><span class="dot"></span>AI Assistant - Northeast Florida</div></div>
-<button class="rst" onclick="resetChat()">Reset</button>
-</div>
-<div class="msgs" id="M"></div>
-<div class="chips" id="C"></div>
-<div class="irow">
-<input class="inp" id="I" placeholder="Ask me anything about propane..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)go()"/>
-<button class="snd" id="B" onclick="go()"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
-</div>
+<div class="topbar"><div class="topbar-brand"><div class="topbar-logo"><svg viewBox="0 0 24 24"><path d="M17.66 7.93L12 2.27 6.34 7.93c-3.12 3.12-3.12 8.19 0 11.31C7.9 20.8 9.95 21.58 12 21.58c2.05 0 4.1-.78 5.66-2.34 3.12-3.12 3.12-8.19 0-11.31z"/></svg></div>Sea Breeze Propane</div><div style="display:flex;gap:8px"><span class="tba">AI Powered</span><span class="tb">Beta v2</span></div></div>
+<div class="hero"><div class="hero-tag">Team Beta v2</div><h1>Meet <em>Tank the Turtle</em>,<br>your AI assistant</h1><p>Tank now understands natural language, remembers your conversation, handles objections, and qualifies commercial leads intelligently.</p><div class="hf"><span class="hff">Conversational memory</span><span class="hff">Objection handling</span><span class="hff">Commercial intent detection</span><span class="hff">Explains recommendations</span></div></div>
+<div class="ig"><div class="ic"><div class="ici">&#129504;</div><div class="icl">AI Brain</div><div class="icv">Powered by Claude</div></div><div class="ic"><div class="ici">&#128172;</div><div class="icl">Natural language</div><div class="icv">Talk freely</div></div><div class="ic"><div class="ici">&#127919;</div><div class="icl">Smart routing</div><div class="icv">High-value lead priority</div></div></div>
+<div class="ww"><div class="sw">
+<div class="sh"><div class="sa"><svg viewBox="0 0 24 24"><path d="M17.66 7.93L12 2.27 6.34 7.93c-3.12 3.12-3.12 8.19 0 11.31C7.9 20.8 9.95 21.58 12 21.58c2.05 0 4.1-.78 5.66-2.34 3.12-3.12 3.12-8.19 0-11.31z"/></svg></div><div class="shi"><div class="shn">Tank the Turtle - Sea Breeze Propane</div><div class="shs"><span class="sd"></span>AI Assistant - NE Florida &amp; Gainesville</div></div><button class="sr" onclick="resetChat()">Reset</button></div>
+<div class="sm" id="messages"></div>
+<div class="sc" id="chips"></div>
+<div class="sir"><input class="si" id="inp" placeholder="Ask me anything about propane..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)go()"/><button class="ss" id="btn" onclick="go()"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button></div>
 </div></div>
-<div class="foot">Beta v2 &middot; <a href="https://seabreezelp.com" target="_blank">seabreezelp.com</a> &middot; Powered by Claude AI</div>
+<div class="footer">Beta v2 &middot; <a href="https://seabreezelp.com" target="_blank">seabreezelp.com</a> &middot; Powered by Claude AI</div>
 <script>
-var ch=[],busy=false,M=document.getElementById("M"),C=document.getElementById("C"),I=document.getElementById("I"),B=document.getElementById("B");
-function lock(on){busy=on;I.disabled=on;B.disabled=on;I.placeholder=on?"Breezy is thinking...":"Ask me anything about propane...";}
-function addMsg(html,r){var d=document.createElement("div");d.className="m "+(r==="bot"?"mb":"mu");var b=document.createElement("div");b.className="bub";if(r==="bot")b.innerHTML=html;else b.textContent=html;d.appendChild(b);M.appendChild(d);M.scrollTop=M.scrollHeight;}
-function spin(){var d=document.createElement("div");d.className="m mb";d.id="sp";var t=document.createElement("div");t.className="tw";t.innerHTML='<div class="tp"><span></span><span></span><span></span></div>';d.appendChild(t);M.appendChild(d);M.scrollTop=M.scrollHeight;}
-function unspin(){var e=document.getElementById("sp");if(e)e.remove();}
-function setChips(list){C.innerHTML="";if(!list||!list.length)return;list.forEach(function(c){var b=document.createElement("button");b.className="chip "+(c.s||"");b.textContent=c.l;b.onclick=function(){C.innerHTML="";go(c.l);};C.appendChild(b);});}
-function fmt(t){var p=t.split("**");var o="";for(var i=0;i<p.length;i++){o+=i%2===0?p[i]:"<strong>"+p[i]+"</strong>";}return o.split("\n").join("<br>");}
+var ch=[],busy=false;
+var M=document.getElementById("messages"),C=document.getElementById("chips"),I=document.getElementById("inp"),B=document.getElementById("btn");
+function lock(on){busy=on;I.disabled=on;B.disabled=on;I.placeholder=on?"Tank is thinking...":"Ask me anything about propane...";}
+function msg(html,r){var d=document.createElement("div");d.className="msg "+(r==="bot"?"mb":"mu2");var b=document.createElement("div");b.className="bb";if(r==="bot"){b.innerHTML=html;}else{b.textContent=html;}d.appendChild(b);M.appendChild(d);M.scrollTop=M.scrollHeight;}
+function spin(){var d=document.createElement("div");d.className="msg mb";d.id="sp";var t=document.createElement("div");t.className="tw";t.innerHTML='<div class="tp"><span></span><span></span><span></span></div>';d.appendChild(t);M.appendChild(d);M.scrollTop=M.scrollHeight;}
+function unspin(){var t=document.getElementById("sp");if(t)t.remove();}
+function chips(list){C.innerHTML="";if(!list||!list.length)return;list.forEach(function(c){var b=document.createElement("button");b.className="chip "+(c.s||"");b.textContent=c.l;b.onclick=function(){C.innerHTML="";run(c.l);};C.appendChild(b);});}
+function fmt(t){var s=t.split("**");var o="";for(var i=0;i<s.length;i++){o+=i%2===0?s[i]:"<strong>"+s[i]+"</strong>";}return o.split("\n").join("<br>");}
 async function api(m){ch.push({role:"user",content:m});var r=await fetch("/.netlify/functions/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:ch})});if(!r.ok)throw new Error(r.status);var d=await r.json();ch.push({role:"assistant",content:d.text});return d.text;}
-async function run(text){if(!text||busy)return;addMsg(text,"user");C.innerHTML="";lock(true);spin();try{var res=await api(text);unspin();addMsg(fmt(res),"bot");var lo=res.toLowerCase();if(lo.indexOf("all set")>-1||lo.indexOf("reach out")>-1){setChips([{l:"Schedule a visit",s:"csky"},{l:"Tank size guide"},{l:"Pricing",s:"csnd"}]);}else if(lo.indexOf("forklift")>-1||lo.indexOf("fleet")>-1||lo.indexOf("specialist")>-1){setChips([{l:"Schedule consultation",s:"csky"},{l:"Cylinder exchange"},{l:"Bulk tanks",s:"csnd"}]);}else if((lo.indexOf("gallon")>-1||lo.indexOf("tank")>-1)&&(lo.indexOf("recommend")>-1||lo.indexOf("suggest")>-1)){setChips([{l:"Why that size?"},{l:"Lighter usage?"},{l:"Get started",s:"csky"}]);}else if(ch.length<=2){setChips([{l:"Check service area"},{l:"Tank size help"},{l:"Pricing",s:"csnd"},{l:"Commercial inquiry",s:"csky"}]);}}catch(e){unspin();var ed=document.createElement("div");ed.className="er";ed.textContent="Something went wrong - please try again.";M.appendChild(ed);M.scrollTop=M.scrollHeight;ch.pop();}lock(false);I.focus();}
-function go(v){var t=v||I.value.trim();if(!t||busy)return;if(!v)I.value="";run(t);}
+async function run(text){if(!text||!text.trim()||busy)return;msg(text,"user");C.innerHTML="";lock(true);spin();
+try{var res=await api(text);unspin();msg(fmt(res),"bot");
+var lo=res.toLowerCase();
+if(lo.indexOf("all set")>-1||lo.indexOf("reach out")>-1){chips([{l:"Schedule a site visit",s:"csky"},{l:"Tank size guide"},{l:"Pricing details",s:"csand"}]);}
+else if(lo.indexOf("forklift")>-1||lo.indexOf("fleet")>-1||lo.indexOf("specialist")>-1){chips([{l:"Schedule a consultation",s:"csky"},{l:"Cylinder exchange info"},{l:"Bulk tank options",s:"csand"}]);}
+else if((lo.indexOf("gallon")>-1||lo.indexOf("tank")>-1)&&(lo.indexOf("recommend")>-1||lo.indexOf("suggest")>-1)){chips([{l:"Why that size?"},{l:"What if my usage is lighter?"},{l:"Get started",s:"csky"}]);}
+else if(ch.length<=2){chips([{l:"Check my service area"},{l:"What size tank do I need?"},{l:"Pricing info",s:"csand"},{l:"Commercial inquiry",s:"csky"}]);}
+}catch(e){unspin();var ed=document.createElement("div");ed.className="err";ed.textContent="Something went wrong. Please try again.";M.appendChild(ed);M.scrollTop=M.scrollHeight;ch.pop();}
+lock(false);I.focus();}
+function go(){var v=I.value.trim();if(!v||busy)return;I.value="";run(v);}
 async function resetChat(){ch=[];M.innerHTML="";C.innerHTML="";lock(false);await start();}
-async function start(){lock(true);spin();try{var o=await api("Hello! Give a warm 2-sentence opening as Breezy for Sea Breeze Propane. Be welcoming. Do not list features.");unspin();addMsg(fmt(o),"bot");}catch(e){unspin();addMsg("Hi! I am Breezy, your Sea Breeze Propane assistant. What can I help you with today?","bot");}setChips([{l:"Check service area"},{l:"Tank size help"},{l:"Pricing",s:"csnd"},{l:"Commercial inquiry",s:"csky"}]);lock(false);}
+async function start(){lock(true);spin();
+try{var o=await api("Hello! Give me a warm 2-sentence opening greeting as Tank the Turtle for Sea Breeze Propane. Be welcoming and invite them to share what they need. Do not list features robotically.");unspin();msg(fmt(o),"bot");}
+catch(e){unspin();msg("Hi! I am Tank the Turtle, your Sea Breeze Propane assistant. What can I help you with today?","bot");}
+chips([{l:"Check my service area"},{l:"What size tank do I need?"},{l:"Pricing info",s:"csand"},{l:"Commercial inquiry",s:"csky"}]);lock(false);}
 start();
 </script></body></html>

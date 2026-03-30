@@ -9,11 +9,11 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--sb-teal:#0F6E56;--sb-teal-light:#E1F5EE;--sb-teal-mid:#1D9E75;--sb-teal-dark:#085041;--sb-sky-light:#E6F1FB;--sb-sand-light:#FAEEDA;--sb-bg:#f7faf9;--sb-surface:#f0f5f3;--sb-card:#fff;--sb-text:#1a2e28;--sb-muted:#5a7a6e;--sb-border:rgba(15,110,86,0.15);--sb-radius:18px;--sb-font:"DM Sans",sans-serif}
 body{font-family:var(--sb-font);background:var(--sb-bg);min-height:100vh;display:flex;flex-direction:column;align-items:center}
-.topbar{width:100%;background:var(--sb-teal);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar{width:100%;background:var(--sb-teal);padding:10px 24px;display:flex;align-items:center;justify-content:space-between}
 .topbar-brand{display:flex;align-items:center;gap:10px;color:#fff;font-size:15px;font-weight:600}
 .topbar-logo{width:32px;height:32px;background:rgba(255,255,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center}
 .topbar-logo svg{width:18px;height:18px;fill:#fff}
-.topbar-badges{display:flex;gap:8px;align-items:center}
+.topbar-badges{display:flex;gap:8px}
 .topbar-badge{background:rgba(255,255,255,0.2);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500}
 .topbar-badge-ai{background:rgba(255,255,255,0.35);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600}
 .hero{text-align:center;padding:36px 24px 20px;max-width:600px;width:100%}
@@ -34,7 +34,7 @@ body{font-family:var(--sb-font);background:var(--sb-bg);min-height:100vh;display
 .sbw-status-dot{width:7px;height:7px;background:#9FE1CB;border-radius:50%;display:inline-block;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 .sbw-header-reset{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.65);font-size:13px;padding:4px 8px;border-radius:6px;font-family:var(--sb-font)}
-.sbw-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin}
+.sbw-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
 .sbw-msg{display:flex;gap:8px;align-items:flex-end;animation:sbfade .22s ease}
 @keyframes sbfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .sbw-msg-bot{align-self:flex-start;max-width:90%}
@@ -43,20 +43,14 @@ body{font-family:var(--sb-font);background:var(--sb-bg);min-height:100vh;display
 .sbw-msg-bot .sbw-bubble{background:var(--sb-surface);border-bottom-left-radius:4px;border:.5px solid var(--sb-border)}
 .sbw-msg-user .sbw-bubble{background:var(--sb-teal);color:#fff;border-bottom-right-radius:4px}
 .sbw-chips{display:flex;flex-wrap:wrap;gap:7px;padding:4px 16px 10px;flex-shrink:0}
-.sbw-chip{background:var(--sb-teal-light);color:var(--sb-teal-dark);border:.5px solid #9FE1CB;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sb-font);transition:background .12s,transform .1s;white-space:nowrap}
-.sbw-chip:hover{background:#9FE1CB;transform:scale(1.02)}
+.sbw-chip{background:var(--sb-teal-light);color:var(--sb-teal-dark);border:.5px solid #9FE1CB;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sb-font);white-space:nowrap}
 .sbw-chip-sky{background:var(--sb-sky-light);color:#0C447C;border-color:#B5D4F4}
-.sbw-chip-sky:hover{background:#B5D4F4}
 .sbw-chip-sand{background:var(--sb-sand-light);color:#633806;border-color:#FAC775}
-.sbw-chip-sand:hover{background:#FAC775}
 .sbw-input-row{display:flex;gap:8px;padding:10px 14px 14px;flex-shrink:0;border-top:.5px solid var(--sb-border);background:var(--sb-card)}
-.sbw-input{flex:1;border:.5px solid var(--sb-border);border-radius:22px;padding:9px 16px;font-size:14px;font-family:var(--sb-font);background:var(--sb-surface);color:var(--sb-text);outline:none;transition:border-color .15s}
-.sbw-input:focus{border-color:var(--sb-teal-mid)}
-.sbw-input::placeholder{color:var(--sb-muted)}
-.sbw-input:disabled{opacity:.5;cursor:not-allowed}
-.sbw-send{width:38px;height:38px;background:var(--sb-teal);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .12s,transform .1s}
-.sbw-send:hover:not(:disabled){background:var(--sb-teal-dark);transform:scale(1.05)}
-.sbw-send:disabled{opacity:.5;cursor:not-allowed}
+.sbw-input{flex:1;border:.5px solid var(--sb-border);border-radius:22px;padding:9px 16px;font-size:14px;font-family:var(--sb-font);background:var(--sb-surface);color:var(--sb-text);outline:none}
+.sbw-input:disabled{opacity:.5}
+.sbw-send{width:38px;height:38px;background:var(--sb-teal);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sbw-send:disabled{opacity:.5}
 .sbw-send svg{width:16px;height:16px;fill:#fff}
 .sbw-typing-wrap{background:var(--sb-surface);border-radius:16px;border-bottom-left-radius:4px;border:.5px solid var(--sb-border);width:fit-content;padding:10px 14px}
 .sbw-typing{display:flex;gap:4px;align-items:center}
@@ -94,7 +88,6 @@ body{font-family:var(--sb-font);background:var(--sb-bg);min-height:100vh;display
     <span class="hero-feat">Objection handling</span>
     <span class="hero-feat">Commercial intent detection</span>
     <span class="hero-feat">Explains recommendations</span>
-    <span class="hero-feat">24/7 lead capture</span>
   </div>
 </div>
 <div class="info-grid">
@@ -129,8 +122,7 @@ function addMsg(html,role){var d=document.createElement('div');d.className='sbw-
 function addTyping(){var d=document.createElement('div');d.className='sbw-msg sbw-msg-bot';d.id='typ';var t=document.createElement('div');t.className='sbw-typing-wrap';t.innerHTML='<div class="sbw-typing"><span></span><span></span><span></span></div>';d.appendChild(t);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}
 function rmTyping(){var t=document.getElementById('typ');if(t)t.remove();}
 function setChips(list){chips.innerHTML='';if(!list||!list.length)return;list.forEach(function(c){var b=document.createElement('button');b.className='sbw-chip '+(c.s||'');b.textContent=c.l;b.onclick=function(){chips.innerHTML='';sendMsg(c.l);};chips.appendChild(b);});}
-function fmt(t){return t.replace(/**(.*?)**/g,'<strong>$1</strong>').replace(/
-/g,'<br>');}
+function fmt(t){return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');}
 async function callAPI(msg){
   ch.push({role:'user',content:msg});
   var r=await fetch('/.netlify/functions/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:ch})});
@@ -145,12 +137,12 @@ async function sendMsg(text){
   try{
     var res=await callAPI(text);rmTyping();addMsg(fmt(res),'bot');
     var lo=res.toLowerCase();
-    if(lo.indexOf('all set')>-1||lo.indexOf('reach out')>-1||lo.indexOf('contact you')>-1){setChips([{l:'Schedule a site visit',s:'sbw-chip-sky'},{l:'Tank size guide'},{l:'Pricing details',s:'sbw-chip-sand'}]);}
-    else if(lo.indexOf('forklift')>-1||lo.indexOf('fleet')>-1||lo.indexOf('specialist')>-1||lo.indexOf('commercial team')>-1){setChips([{l:'Schedule a consultation',s:'sbw-chip-sky'},{l:'Tell me about cylinder exchange'},{l:'Bulk tank options',s:'sbw-chip-sand'}]);}
+    if(lo.indexOf('all set')>-1||lo.indexOf('reach out')>-1){setChips([{l:'Schedule a site visit',s:'sbw-chip-sky'},{l:'Tank size guide'},{l:'Pricing details',s:'sbw-chip-sand'}]);}
+    else if(lo.indexOf('forklift')>-1||lo.indexOf('fleet')>-1||lo.indexOf('specialist')>-1){setChips([{l:'Schedule a consultation',s:'sbw-chip-sky'},{l:'Cylinder exchange info'},{l:'Bulk tank options',s:'sbw-chip-sand'}]);}
     else if((lo.indexOf('gallon')>-1||lo.indexOf('tank')>-1)&&(lo.indexOf('recommend')>-1||lo.indexOf('suggest')>-1)){setChips([{l:'Why that size?'},{l:'What if my usage is lighter?'},{l:'Get started',s:'sbw-chip-sky'}]);}
     else if(ch.length<=2){setChips([{l:'Check my service area'},{l:'What size tank do I need?'},{l:'Pricing info',s:'sbw-chip-sand'},{l:'Commercial inquiry',s:'sbw-chip-sky'}]);}
   }catch(e){
-    rmTyping();var ed=document.createElement('div');ed.className='sbw-error';ed.textContent='Something went wrong. Please try again in a moment.';msgs.appendChild(ed);msgs.scrollTop=msgs.scrollHeight;ch.pop();
+    rmTyping();var ed=document.createElement('div');ed.className='sbw-error';ed.textContent='Something went wrong. Please try again.';msgs.appendChild(ed);msgs.scrollTop=msgs.scrollHeight;ch.pop();
   }
   setL(false);inp.focus();
 }
@@ -159,9 +151,9 @@ async function resetChat(){ch=[];msgs.innerHTML='';chips.innerHTML='';setL(false
 async function startChat(){
   setL(true);addTyping();
   try{
-    var o=await callAPI('Hello! Give me a warm natural 2-sentence opening greeting as Breezy for Sea Breeze Propane. Be welcoming and invite them to share what they need. Do not list features robotically.');
+    var o=await callAPI('Hello! Give me a warm 2-sentence opening as Breezy for Sea Breeze Propane. Be welcoming, do not list features robotically.');
     rmTyping();addMsg(fmt(o),'bot');
-  }catch(e){rmTyping();addMsg('Hi there! I am Breezy, your Sea Breeze Propane assistant. What can I help you with today?','bot');}
+  }catch(e){rmTyping();addMsg('Hi! I am Breezy, your Sea Breeze Propane assistant. What can I help you with today?','bot');}
   setChips([{l:'Check my service area'},{l:'What size tank do I need?'},{l:'Pricing info',s:'sbw-chip-sand'},{l:'Commercial inquiry',s:'sbw-chip-sky'}]);
   setL(false);
 }

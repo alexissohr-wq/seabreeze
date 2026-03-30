@@ -71,7 +71,7 @@ body{font-family:var(--sb-font);background:var(--sb-bg);min-height:100vh;display
 .info-card-label{font-size:11px;font-weight:600;color:var(--sb-teal-dark);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 .info-card-val{font-size:13px;color:var(--sb-muted)}
 .footer{width:100%;text-align:center;padding:16px 24px 32px;font-size:12px;color:var(--sb-muted)}
-.footer a,.sbw-link{color:var(--sb-teal-mid);text-decoration:none}
+.footer a{color:var(--sb-teal-mid);text-decoration:none}
 </style>
 </head>
 <body>
@@ -122,48 +122,47 @@ body{font-family:var(--sb-font);background:var(--sb-bg);min-height:100vh;display
 </div>
 <div class="footer">Beta v2 - internal team review &nbsp;&middot;&nbsp; <a href="https://seabreezelp.com" target="_blank">seabreezelp.com</a> &nbsp;&middot;&nbsp; Powered by Claude AI</div>
 <script>
-var SYS="You are Breezy, the friendly AI assistant for Sea Breeze Propane, serving Northeast Florida. Personality: warm, local, knowledgeable - like a helpful neighbor who knows propane. Goals: 1) Build trust by explaining reasoning 2) Understand situation before recommending 3) Qualify leads with smart questions 4) Capture contact info AFTER being helpful 5) Prioritize high-value commercial leads. Tank sizing: 120gal=single appliance (generator/water heater/grill), 250gal=light home heating, 500gal=full home most popular covers HVAC plus water plus cooking in 1500-3000sqft, 1000gal=large homes 3000sqft plus. Always explain WHY you recommend a size. Key factors: home size, number of appliances, usage frequency. Commercial: forklifts, fleet, warehouses - recognize immediately, ask qualifying questions (fleet size, volume, current provider, urgency), promise specialist callback within 2 hours. Objections: address directly and honestly, never reset to a menu. Example: if asked why that tank size, explain the reasoning. If they say it seems too big, explain tradeoffs honestly. Lead capture: ask for name then email then phone, only after being genuinely helpful first. Format: conversational 2-4 sentences, end with a question or next step. Never use dash bullet points. Service area: Northeast Florida including Duval, Nassau, St Johns, Clay, Baker counties. For out of area, offer expansion waitlist.";
 var ch=[],loading=false;
-var msgs=document.getElementById("messages"),chips=document.getElementById("chips"),inp=document.getElementById("userInput"),btn=document.getElementById("sendBtn");
-function setL(on){loading=on;inp.disabled=on;btn.disabled=on;inp.placeholder=on?"Breezy is thinking...":"Ask me anything about propane...";}
-function addMsg(html,role){var d=document.createElement("div");d.className="sbw-msg sbw-msg-"+role;var b=document.createElement("div");b.className="sbw-bubble";if(role==="bot"){b.innerHTML=html;}else{b.textContent=html;}d.appendChild(b);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}
-function addTyping(){var d=document.createElement("div");d.className="sbw-msg sbw-msg-bot";d.id="typ";var t=document.createElement("div");t.className="sbw-typing-wrap";t.innerHTML='<div class="sbw-typing"><span></span><span></span><span></span></div>';d.appendChild(t);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}
-function rmTyping(){var t=document.getElementById("typ");if(t)t.remove();}
-function setChips(list){chips.innerHTML="";if(!list||!list.length)return;list.forEach(function(c){var b=document.createElement("button");b.className="sbw-chip "+(c.s||"");b.textContent=c.l;b.onclick=function(){chips.innerHTML="";sendMsg(c.l);};chips.appendChild(b);});}
-function fmt(t){return t.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br>");}
+var msgs=document.getElementById('messages'),chips=document.getElementById('chips'),inp=document.getElementById('userInput'),btn=document.getElementById('sendBtn');
+function setL(on){loading=on;inp.disabled=on;btn.disabled=on;inp.placeholder=on?'Breezy is thinking...':'Ask me anything about propane...';}
+function addMsg(html,role){var d=document.createElement('div');d.className='sbw-msg sbw-msg-'+role;var b=document.createElement('div');b.className='sbw-bubble';if(role==='bot'){b.innerHTML=html;}else{b.textContent=html;}d.appendChild(b);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}
+function addTyping(){var d=document.createElement('div');d.className='sbw-msg sbw-msg-bot';d.id='typ';var t=document.createElement('div');t.className='sbw-typing-wrap';t.innerHTML='<div class="sbw-typing"><span></span><span></span><span></span></div>';d.appendChild(t);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}
+function rmTyping(){var t=document.getElementById('typ');if(t)t.remove();}
+function setChips(list){chips.innerHTML='';if(!list||!list.length)return;list.forEach(function(c){var b=document.createElement('button');b.className='sbw-chip '+(c.s||'');b.textContent=c.l;b.onclick=function(){chips.innerHTML='';sendMsg(c.l);};chips.appendChild(b);});}
+function fmt(t){return t.replace(/**(.*?)**/g,'<strong>$1</strong>').replace(/
+/g,'<br>');}
 async function callAPI(msg){
-  ch.push({role:"user",content:msg});
-  var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:SYS,messages:ch})});
+  ch.push({role:'user',content:msg});
+  var r=await fetch('/.netlify/functions/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:ch})});
   if(!r.ok)throw new Error(r.status);
-  var d=await r.json();var txt=d.content[0].text;
-  ch.push({role:"assistant",content:txt});return txt;
+  var d=await r.json();
+  ch.push({role:'assistant',content:d.text});
+  return d.text;
 }
 async function sendMsg(text){
   if(!text||!text.trim()||loading)return;
-  addMsg(text,"user");chips.innerHTML="";setL(true);addTyping();
+  addMsg(text,'user');chips.innerHTML='';setL(true);addTyping();
   try{
-    var res=await callAPI(text);rmTyping();addMsg(fmt(res),"bot");
+    var res=await callAPI(text);rmTyping();addMsg(fmt(res),'bot');
     var lo=res.toLowerCase();
-    if(lo.indexOf("all set")>-1||lo.indexOf("reach out")>-1){setChips([{l:"Schedule a site visit",s:"sbw-chip-sky"},{l:"Tank size guide"},{l:"Pricing details",s:"sbw-chip-sand"}]);}
-    else if(lo.indexOf("forklift")>-1||lo.indexOf("fleet")>-1||lo.indexOf("specialist")>-1){setChips([{l:"Schedule a consultation",s:"sbw-chip-sky"},{l:"Tell me about cylinder exchange"},{l:"Bulk tank options",s:"sbw-chip-sand"}]);}
-    else if((lo.indexOf("gallon")>-1||lo.indexOf("tank")>-1)&&(lo.indexOf("recommend")>-1||lo.indexOf("suggest")>-1)){setChips([{l:"Why that size?"},{l:"What if my usage is lighter?"},{l:"Get started",s:"sbw-chip-sky"}]);}
-    else if(ch.length<=2){setChips([{l:"Check my service area"},{l:"What size tank do I need?"},{l:"Pricing info",s:"sbw-chip-sand"},{l:"Commercial inquiry",s:"sbw-chip-sky"}]);}
+    if(lo.indexOf('all set')>-1||lo.indexOf('reach out')>-1||lo.indexOf('contact you')>-1){setChips([{l:'Schedule a site visit',s:'sbw-chip-sky'},{l:'Tank size guide'},{l:'Pricing details',s:'sbw-chip-sand'}]);}
+    else if(lo.indexOf('forklift')>-1||lo.indexOf('fleet')>-1||lo.indexOf('specialist')>-1||lo.indexOf('commercial team')>-1){setChips([{l:'Schedule a consultation',s:'sbw-chip-sky'},{l:'Tell me about cylinder exchange'},{l:'Bulk tank options',s:'sbw-chip-sand'}]);}
+    else if((lo.indexOf('gallon')>-1||lo.indexOf('tank')>-1)&&(lo.indexOf('recommend')>-1||lo.indexOf('suggest')>-1)){setChips([{l:'Why that size?'},{l:'What if my usage is lighter?'},{l:'Get started',s:'sbw-chip-sky'}]);}
+    else if(ch.length<=2){setChips([{l:'Check my service area'},{l:'What size tank do I need?'},{l:'Pricing info',s:'sbw-chip-sand'},{l:'Commercial inquiry',s:'sbw-chip-sky'}]);}
   }catch(e){
-    rmTyping();var ed=document.createElement("div");ed.className="sbw-error";ed.textContent="Something went wrong. Please try again.";msgs.appendChild(ed);msgs.scrollTop=msgs.scrollHeight;ch.pop();
+    rmTyping();var ed=document.createElement('div');ed.className='sbw-error';ed.textContent='Something went wrong. Please try again in a moment.';msgs.appendChild(ed);msgs.scrollTop=msgs.scrollHeight;ch.pop();
   }
   setL(false);inp.focus();
 }
-function handleSend(){var v=inp.value.trim();if(!v||loading)return;inp.value="";sendMsg(v);}
-async function resetChat(){ch=[];msgs.innerHTML="";chips.innerHTML="";setL(false);await startChat();}
+function handleSend(){var v=inp.value.trim();if(!v||loading)return;inp.value='';sendMsg(v);}
+async function resetChat(){ch=[];msgs.innerHTML='';chips.innerHTML='';setL(false);await startChat();}
 async function startChat(){
   setL(true);addTyping();
   try{
-    var o=await callAPI("Hello! Give me a warm natural 2-sentence opening greeting as Breezy for Sea Breeze Propane. Be welcoming and invite them to share what they need. Do not list features robotically.");
-    rmTyping();addMsg(fmt(o),"bot");
-  }catch(e){
-    rmTyping();addMsg("Hi there! I am Breezy, your Sea Breeze Propane assistant. What can I help you with today?","bot");
-  }
-  setChips([{l:"Check my service area"},{l:"What size tank do I need?"},{l:"Pricing info",s:"sbw-chip-sand"},{l:"Commercial inquiry",s:"sbw-chip-sky"}]);
+    var o=await callAPI('Hello! Give me a warm natural 2-sentence opening greeting as Breezy for Sea Breeze Propane. Be welcoming and invite them to share what they need. Do not list features robotically.');
+    rmTyping();addMsg(fmt(o),'bot');
+  }catch(e){rmTyping();addMsg('Hi there! I am Breezy, your Sea Breeze Propane assistant. What can I help you with today?','bot');}
+  setChips([{l:'Check my service area'},{l:'What size tank do I need?'},{l:'Pricing info',s:'sbw-chip-sand'},{l:'Commercial inquiry',s:'sbw-chip-sky'}]);
   setL(false);
 }
 startChat();

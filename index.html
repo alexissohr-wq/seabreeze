@@ -55,6 +55,7 @@ body{font-family:var(--f);background:var(--bg);min-height:100vh;display:flex;fle
 .tp span:nth-child(2){animation-delay:.2s}.tp span:nth-child(3){animation-delay:.4s}
 @keyframes sb{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
 .err{background:#FCEBEB;border:.5px solid #F7C1C1;border-radius:12px;padding:10px 14px;font-size:13px;color:#A32D2D;margin:0 16px 10px}
+.hs-badge{background:#E1F5EE;border:.5px solid #9FE1CB;border-radius:10px;padding:6px 12px;font-size:12px;color:#085041;margin:0 16px 6px;display:none}
 .ig{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;max-width:460px;width:100%;padding:0 16px 24px}
 .ic{background:var(--c);border:.5px solid var(--b);border-radius:12px;padding:14px;text-align:center}
 .ici{font-size:20px;margin-bottom:6px}
@@ -64,25 +65,41 @@ body{font-family:var(--f);background:var(--bg);min-height:100vh;display:flex;fle
 .footer a{color:var(--tm);text-decoration:none}
 </style></head><body>
 <div class="topbar"><div class="topbar-brand"><div class="topbar-logo"><svg viewBox="0 0 24 24"><path d="M17.66 7.93L12 2.27 6.34 7.93c-3.12 3.12-3.12 8.19 0 11.31C7.9 20.8 9.95 21.58 12 21.58c2.05 0 4.1-.78 5.66-2.34 3.12-3.12 3.12-8.19 0-11.31z"/></svg></div>Sea Breeze Propane</div><div style="display:flex;gap:8px"><span class="tba">AI Powered</span><span class="tb">Beta v2</span></div></div>
-<div class="hero"><div class="hero-tag">Team Beta v2</div><h1>Meet <em>Tank the Turtle</em>,<br>your AI assistant</h1><p>Tank now understands natural language, remembers your conversation, handles objections, and qualifies commercial leads intelligently.</p><div class="hf"><span class="hff">Conversational memory</span><span class="hff">Objection handling</span><span class="hff">Commercial intent detection</span><span class="hff">Explains recommendations</span></div></div>
-<div class="ig"><div class="ic"><div class="ici">&#129504;</div><div class="icl">AI Brain</div><div class="icv">Powered by Claude</div></div><div class="ic"><div class="ici">&#128172;</div><div class="icl">Natural language</div><div class="icv">Talk freely</div></div><div class="ic"><div class="ici">&#127919;</div><div class="icl">Smart routing</div><div class="icv">High-value lead priority</div></div></div>
+<div class="hero"><div class="hero-tag">Team Beta v2</div><h1>Meet <em>Tank the Turtle</em>,<br>your AI assistant</h1><p>Tank understands natural language, remembers your conversation, follows our call framework, and logs leads directly into HubSpot.</p><div class="hf"><span class="hff">Conversational memory</span><span class="hff">Call framework built in</span><span class="hff">HubSpot integration</span><span class="hff">Commercial intent detection</span></div></div>
+<div class="ig"><div class="ic"><div class="ici">&#129504;</div><div class="icl">AI Brain</div><div class="icv">Powered by Claude</div></div><div class="ic"><div class="ici">&#128202;</div><div class="icl">HubSpot</div><div class="icv">Auto lead logging</div></div><div class="ic"><div class="ici">&#127919;</div><div class="icl">Smart routing</div><div class="icv">Lane 1, 2, 3 + Commercial</div></div></div>
 <div class="ww"><div class="sw">
 <div class="sh"><div class="sa"><svg viewBox="0 0 24 24"><path d="M17.66 7.93L12 2.27 6.34 7.93c-3.12 3.12-3.12 8.19 0 11.31C7.9 20.8 9.95 21.58 12 21.58c2.05 0 4.1-.78 5.66-2.34 3.12-3.12 3.12-8.19 0-11.31z"/></svg></div><div class="shi"><div class="shn">Tank the Turtle - Sea Breeze Propane</div><div class="shs"><span class="sd"></span>AI Assistant - NE Florida &amp; Gainesville</div></div><button class="sr" onclick="resetChat()">Reset</button></div>
 <div class="sm" id="messages"></div>
+<div class="hs-badge" id="hsBadge">&#10003; Lead logged in HubSpot</div>
 <div class="sc" id="chips"></div>
 <div class="sir"><input class="si" id="inp" placeholder="Ask me anything about propane..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)go()"/><button class="ss" id="btn" onclick="go()"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button></div>
 </div></div>
-<div class="footer">Beta v2 &middot; <a href="https://seabreezelp.com" target="_blank">seabreezelp.com</a> &middot; Powered by Claude AI</div>
+<div class="footer">Beta v2 &middot; <a href="https://seabreezelp.com" target="_blank">seabreezelp.com</a> &middot; Powered by Claude AI &middot; HubSpot Connected</div>
 <script>
-var ch=[],busy=false;
-var M=document.getElementById("messages"),C=document.getElementById("chips"),I=document.getElementById("inp"),B=document.getElementById("btn");
+var ch=[],busy=false,lead={};
+var M=document.getElementById("messages"),C=document.getElementById("chips"),I=document.getElementById("inp"),B=document.getElementById("btn"),HS=document.getElementById("hsBadge");
 function lock(on){busy=on;I.disabled=on;B.disabled=on;I.placeholder=on?"Tank is thinking...":"Ask me anything about propane...";}
 function msg(html,r){var d=document.createElement("div");d.className="msg "+(r==="bot"?"mb":"mu2");var b=document.createElement("div");b.className="bb";if(r==="bot"){b.innerHTML=html;}else{b.textContent=html;}d.appendChild(b);M.appendChild(d);M.scrollTop=M.scrollHeight;}
 function spin(){var d=document.createElement("div");d.className="msg mb";d.id="sp";var t=document.createElement("div");t.className="tw";t.innerHTML='<div class="tp"><span></span><span></span><span></span></div>';d.appendChild(t);M.appendChild(d);M.scrollTop=M.scrollHeight;}
 function unspin(){var t=document.getElementById("sp");if(t)t.remove();}
 function chips(list){C.innerHTML="";if(!list||!list.length)return;list.forEach(function(c){var b=document.createElement("button");b.className="chip "+(c.s||"");b.textContent=c.l;b.onclick=function(){C.innerHTML="";run(c.l);};C.appendChild(b);});}
 function fmt(t){var s=t.split("**");var o="";for(var i=0;i<s.length;i++){o+=i%2===0?s[i]:"<strong>"+s[i]+"</strong>";}return o.split("\n").join("<br>");}
-async function api(m){ch.push({role:"user",content:m});var r=await fetch("/.netlify/functions/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:ch})});if(!r.ok)throw new Error(r.status);var d=await r.json();ch.push({role:"assistant",content:d.text});return d.text;}
+function extractLead(text){
+  var em=text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  var ph=text.match(/[\(]?[0-9]{3}[\)\-\s]?[0-9]{3}[\-\s]?[0-9]{4}/);
+  if(em)lead.email=em[0];
+  if(ph)lead.phone=ph[0];
+}
+async function api(m){
+  ch.push({role:"user",content:m});
+  extractLead(m);
+  var r=await fetch("/.netlify/functions/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:ch,leadData:lead})});
+  if(!r.ok)throw new Error(r.status);
+  var d=await r.json();
+  if(d.hubspot&&d.hubspot.contactId){HS.style.display="block";setTimeout(function(){HS.style.display="none";},5000);}
+  ch.push({role:"assistant",content:d.text});
+  return d.text;
+}
 async function run(text){if(!text||!text.trim()||busy)return;msg(text,"user");C.innerHTML="";lock(true);spin();
 try{var res=await api(text);unspin();msg(fmt(res),"bot");
 var lo=res.toLowerCase();
@@ -93,10 +110,10 @@ else if(ch.length<=2){chips([{l:"Check my service area"},{l:"What size tank do I
 }catch(e){unspin();var ed=document.createElement("div");ed.className="err";ed.textContent="Something went wrong. Please try again.";M.appendChild(ed);M.scrollTop=M.scrollHeight;ch.pop();}
 lock(false);I.focus();}
 function go(){var v=I.value.trim();if(!v||busy)return;I.value="";run(v);}
-async function resetChat(){ch=[];M.innerHTML="";C.innerHTML="";lock(false);await start();}
+async function resetChat(){ch=[];lead={};M.innerHTML="";C.innerHTML="";HS.style.display="none";lock(false);await start();}
 async function start(){lock(true);spin();
-try{var o=await api("Hello! Give me a warm 2-sentence opening greeting as Tank the Turtle for Sea Breeze Propane. Be welcoming and invite them to share what they need. Do not list features robotically.");unspin();msg(fmt(o),"bot");}
-catch(e){unspin();msg("Hi! I am Tank the Turtle, your Sea Breeze Propane assistant. What can I help you with today?","bot");}
+try{var o=await api("Hello! Give me a warm 2-sentence opening greeting as Tank the Turtle for Sea Breeze Propane. Be welcoming, invite them to share what they need, do not list features robotically.");unspin();msg(fmt(o),"bot");}
+catch(e){unspin();msg("Sea Breeze Propane, this is Tank - how can I help you today?","bot");}
 chips([{l:"Check my service area"},{l:"What size tank do I need?"},{l:"Pricing info",s:"csand"},{l:"Commercial inquiry",s:"csky"}]);lock(false);}
 start();
 </script></body></html>

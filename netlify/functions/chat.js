@@ -38,7 +38,6 @@ exports.handler = async function(event) {
     const data = await response.json();
     const text = data.content[0].text;
 
-    // Extract contact info using regex directly from conversation - no second API call
     const allText = messages.map(function(m) { return m.content; }).join(' ') + ' ' + text;
     const lead = extractContact(allText);
     if (lead) {
@@ -55,14 +54,11 @@ function extractContact(text) {
   var emailMatch = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
   var phoneMatch = text.match(/\b(\d{3}[\s.\-]?\d{3}[\s.\-]?\d{4})\b/);
   if (!emailMatch && !phoneMatch) return null;
-
   var nameMatch = text.match(/(?:my name is|i(?:'m| am)|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i);
   if (!nameMatch) nameMatch = text.match(/name(?:\s+is)?:?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i);
   if (!nameMatch) return null;
-
   var isCommercial = /warehouse|forklift|fleet|restaurant|manufacturing|port|bulk/i.test(text);
   var companyMatch = text.match(/(?:company|business|from)\s+(?:is\s+|called\s+)?([A-Z][A-Za-z0-9\s&]+?)(?:\s+and|,|\.|$)/);
-
   return {
     name: nameMatch[1].trim(),
     email: emailMatch ? emailMatch[0] : null,
@@ -83,7 +79,6 @@ async function syncToHubSpot(lead, token) {
     if (lead.phone) props.phone = lead.phone;
     if (lead.company) props.company = lead.company;
 
-    // Find or create contact - no duplicates
     var contactId = null;
     if (lead.email) {
       var sr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', {
@@ -115,7 +110,6 @@ async function syncToHubSpot(lead, token) {
 
     if (!contactId) { console.error('No contactId'); return; }
 
-    // Add note
     var note = 'Lead captured by Tank the Turtle\nType: ' + (lead.type || 'unknown') + '\nSource: seabreezelp.com chat widget';
     if (lead.company) note += '\nCompany: ' + lead.company;
     await fetch('https://api.hubapi.com/crm/v3/objects/notes', {
@@ -124,35 +118,31 @@ async function syncToHubSpot(lead, token) {
       body: JSON.stringify({ properties: { hs_note_body: note, hs_timestamp: Date.now().toString() }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] }] })
     });
 
-    // Lead title: FirstName LastName YYYY-MM
     var d = new Date();
     var yyyy = d.getFullYear();
     var mm = String(d.getMonth() + 1).padStart(2, '0');
     var leadTitle = lead.name + ' ' + yyyy + '-' + mm;
 
-    // Check for existing lead - no duplicates
-    var existingLeadId = null;
     var lsr = await fetch('https://api.hubapi.com/crm/v3/objects/leads/search', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'hs_lead_name', operator: 'EQ', value: leadTitle }] }], properties: ['hs_lead_name'] })
     });
     var lsd = await lsr.json();
-    if (lsd.results && lsd.results.length > 0) existingLeadId = lsd.results[0].id;
-
-    if (!existingLeadId) {
-      var lr = await fetch('https://api.hubapi.com/crm/v3/objects/leads', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          properties: { hs_lead_name: leadTitle, hs_lead_status: 'NEW' },
-          associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 578 }] }]
-        })
-      });
-      var ld = await lr.json();
-      console.log('Created lead:', ld.id || JSON.stringify(ld).substring(0,150));
-    } else {
-      console.log('Lead already exists, skipping:', existingLeadId);
+    if (lsd.results && lsd.results.length > 0) {
+      console.log('Lead already exists, skipping:', lsd.results[0].id);
+      return;
     }
+
+    var lr = await fetch('https://api.hubapi.com/crm/v3/objects/leads', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        properties: { hs_lead_name: leadTitle },
+        associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 578 }] }]
+      })
+    });
+    var ld = await lr.json();
+    console.log('Lead result:', JSON.stringify(ld).substring(0, 200));
   } catch(e) { console.error('HubSpot error:', e.message); }
 }

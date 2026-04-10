@@ -15,23 +15,18 @@ exports.handler = async function(event, context) {
 
     const SYS = [
       'You are Tank the Turtle, the friendly AI assistant for Sea Breeze Propane, serving Northeast Florida and the Gainesville area (50-mile radius around zip 32609).',
-      'Personality: warm, local, knowledgeable, honest. Like a helpful neighbor who knows propane. Never pushy.',
+      'Personality: warm, local, knowledgeable, honest. Never pushy.',
       'SERVICE AREA: Northeast Florida (Duval, Nassau, St. Johns, Clay, Baker counties) and Gainesville area. For out-of-area requests offer an expansion waitlist.',
-      'OPENING: Greet warmly. Use: Sea Breeze Propane, this is Tank - how can I help you today?',
-      '',
-      'LEAD LANE 1 - CUSTOMER WITH OWN TANK NEEDING DELIVERY (COT)',
-      'Use when: the customer already has a propane tank and needs a delivery.',
-      '1. PRICING - Quote proactively and include the safety check fee upfront. Say exactly: Our first fill price range is $3.199 to $3.899 per gallon depending on your tank size and usage, plus a one-time $135 system safety check fee. The safety check is required by Florida law before we can start service at any new address - it is a mandatory inspection to make sure your tank and system are safe to receive propane.',
-      '2. Emphasize: Beyond the first-fill price and one-time safety check, Sea Breeze is a NO-FEE delivery company. No hidden charges.',
-      '3. Offer remote gauge monitoring: $99 per year with auto delivery and autopay. Run-out credit of $100. Also helps avoid future safety check fees.',
-      '4. After collecting contact info, say: ' + callbackMsg,
+      'OPENING: Sea Breeze Propane, this is Tank - how can I help you today?',
+      'LEAD LANE 1 - COT NEEDING DELIVERY:',
+      '1. Quote proactively: Our first fill price range is $3.199 to $3.899 per gallon depending on your tank size and usage, plus a one-time $135 system safety check fee. The safety check is required by Florida law before we can start service at any new address.',
+      '2. Beyond the first-fill price and one-time safety check, Sea Breeze is a NO-FEE delivery company. No hidden charges.',
+      '3. Offer remote gauge monitoring: $99 per year with auto delivery and autopay. Run-out credit of $100.',
+      '4. After collecting contact info say: ' + callbackMsg,
       '5. Collect name, email, and phone naturally - only after being helpful first.',
-      '',
-      'COMMERCIAL LEADS',
-      'Detect: warehouse, fleet, forklifts, restaurant, agriculture, port. Ask: fleet size, current provider, monthly volume, urgency. Promise specialist callback within 2 hours. Collect company, name, email, phone.',
-      '',
-      'GUIDELINES: Explain WHY for tank recommendations. Handle objections directly. 2-4 sentence responses ending with question or next step. No bullet points or markdown headers.',
-      'Sea Breeze differentiators: no hidden fees beyond first fill and safety check, local and responsive, fair pricing, military discount 5 cents off per gallon, referral credit $100 on auto-fill signup, remote gauge monitoring with run-out guarantee.'
+      'COMMERCIAL LEADS: Detect warehouse, fleet, forklifts, restaurant, agriculture, port. Ask qualifying questions. Promise specialist callback within 2 hours. Collect company, name, email, phone.',
+      'GUIDELINES: Explain WHY for recommendations. Handle objections directly. 2-4 sentences. No bullet points or markdown headers.',
+      'Differentiators: no hidden fees beyond first fill and safety check, local, fair pricing, military discount 5 cents off per gallon, referral credit $100 on auto-fill signup.'
     ].join(' ');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -69,18 +64,20 @@ async function extractAndLog(convText, apiKey, hubToken) {
   var parsed;
   try { parsed = JSON.parse(jm[0]); } catch(e) { return; }
   if (!parsed.name || (!parsed.email && !parsed.phone)) return;
-  await logToHubSpot(parsed, hubToken);
+  await syncToHubSpot(parsed, hubToken);
 }
 
-async function logToHubSpot(lead, token) {
+async function syncToHubSpot(lead, token) {
   if (!token) return;
   try {
+    // Step 1: Build contact properties
     var props = { hs_lead_status: 'NEW' };
     if (lead.name) { var p = lead.name.trim().split(' '); props.firstname = p[0]; props.lastname = p.slice(1).join(' ') || ''; }
     if (lead.email) props.email = lead.email;
     if (lead.phone) props.phone = lead.phone;
     if (lead.company) props.company = lead.company;
 
+    // Step 2: Find or create contact (no duplicates by email)
     var contactId = null;
     if (lead.email) {
       var sr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', {
@@ -93,12 +90,14 @@ async function logToHubSpot(lead, token) {
     }
 
     if (contactId) {
+      // Update existing contact
       await fetch('https://api.hubapi.com/crm/v3/objects/contacts/' + contactId, {
         method: 'PATCH',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ properties: props })
       });
     } else {
+      // Create new contact
       var cr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -108,13 +107,49 @@ async function logToHubSpot(lead, token) {
       contactId = cd.id;
     }
 
-    if (contactId) {
-      var note = 'Lead captured by Tank the Turtle\nType: ' + (lead.type || 'unknown') + '\nSource: seabreezelp.com chat widget' + (lead.company ? '\nCompany: ' + lead.company : '');
-      await fetch('https://api.hubapi.com/crm/v3/objects/notes', {
+    if (!contactId) return;
+
+    // Step 3: Add note to contact
+    var note = 'Lead captured by Tank the Turtle\nType: ' + (lead.type || 'unknown') + '\nSource: seabreezelp.com chat widget' + (lead.company ? '\nCompany: ' + lead.company : '');
+    await fetch('https://api.hubapi.com/crm/v3/objects/notes', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties: { hs_note_body: note, hs_timestamp: Date.now().toString() }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] }] })
+    });
+
+    // Step 4: Check for existing open lead linked to this contact (no duplicates)
+    var existingLead = null;
+    var lr = await fetch('https://api.hubapi.com/crm/v3/objects/leads/search', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filterGroups: [{ filters: [{ propertyName: 'associations.contact', operator: 'EQ', value: contactId }] }],
+        properties: ['hs_lead_status', 'hs_object_id']
+      })
+    });
+    var ld = await lr.json();
+    if (ld.results && ld.results.length > 0) existingLead = ld.results[0].id;
+
+    // Step 5: Only create lead if none exists for this contact
+    if (!existingLead) {
+      var leadLabel = lead.type === 'commercial' ? 'Commercial Inquiry - Tank the Turtle' : 'Propane Delivery Request - Tank the Turtle';
+      var newLead = await fetch('https://api.hubapi.com/crm/v3/objects/leads', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ properties: { hs_note_body: note, hs_timestamp: Date.now().toString() }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] }] })
+        body: JSON.stringify({
+          properties: {
+            hs_lead_name: leadLabel,
+            hs_lead_status: 'NEW',
+            hs_pipeline: 'default'
+          },
+          associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 578 }] }]
+        })
       });
+      var newLeadData = await newLead.json();
+      console.log('Lead created:', newLeadData.id || JSON.stringify(newLeadData).substring(0, 100));
+    } else {
+      console.log('Lead already exists for contact ' + contactId + ', skipping.');
     }
-  } catch(e) { console.error('HubSpot error:', e.message); }
+
+  } catch(e) { console.error('HubSpot sync error:', e.message); }
 }

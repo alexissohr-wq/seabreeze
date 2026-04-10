@@ -1,4 +1,4 @@
-exports.handler = async function(event, context) {
+exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
   try {
     const body = JSON.parse(event.body);
@@ -38,10 +38,12 @@ exports.handler = async function(event, context) {
     const data = await response.json();
     const text = data.content[0].text;
 
-    context.callbackWaitsForEmptyEventLoop = false;
-    const allMessages = [...messages, { role: 'assistant', content: text }];
-    const convText = allMessages.map(function(m) { return m.role.toUpperCase() + ': ' + m.content; }).join('\n');
-    extractAndLog(convText, process.env.ANTHROPIC_API_KEY, process.env.HUBSPOT_TOKEN).catch(function(e) { console.error('async error:', e.message); });
+    // Extract contact info using regex directly from conversation - no second API call
+    const allText = messages.map(function(m) { return m.content; }).join(' ') + ' ' + text;
+    const lead = extractContact(allText);
+    if (lead) {
+      await syncToHubSpot(lead, process.env.HUBSPOT_TOKEN);
+    }
 
     return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) };
   } catch (err) {
@@ -49,29 +51,34 @@ exports.handler = async function(event, context) {
   }
 };
 
-async function extractAndLog(convText, apiKey, hubToken) {
-  var er = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 200, messages: [{ role: 'user', content: 'Extract contact info. Return ONLY JSON or null. Format: {"name":"...","email":"...","phone":"...","company":"...","type":"lane1 or commercial"}. Only include explicitly stated fields.\n\n' + convText }] })
-  });
-  if (!er.ok) return;
-  var ed = await er.json();
-  var et = ed.content[0].text.trim();
-  if (et === 'null' || et.indexOf('{') === -1) return;
-  var jm = et.match(/\{[\s\S]*\}/);
-  if (!jm) return;
-  var parsed;
-  try { parsed = JSON.parse(jm[0]); } catch(e) { return; }
-  if (!parsed.name || (!parsed.email && !parsed.phone)) return;
-  await syncToHubSpot(parsed, hubToken);
+function extractContact(text) {
+  var emailMatch = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  var phoneMatch = text.match(/\b(\d{3}[\s.\-]?\d{3}[\s.\-]?\d{4})\b/);
+  if (!emailMatch && !phoneMatch) return null;
+
+  var nameMatch = text.match(/(?:my name is|i(?:'m| am)|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i);
+  if (!nameMatch) nameMatch = text.match(/name(?:\s+is)?:?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i);
+  if (!nameMatch) return null;
+
+  var isCommercial = /warehouse|forklift|fleet|restaurant|manufacturing|port|bulk/i.test(text);
+  var companyMatch = text.match(/(?:company|business|from)\s+(?:is\s+|called\s+)?([A-Z][A-Za-z0-9\s&]+?)(?:\s+and|,|\.|$)/);
+
+  return {
+    name: nameMatch[1].trim(),
+    email: emailMatch ? emailMatch[0] : null,
+    phone: phoneMatch ? phoneMatch[0].replace(/[\s.\-]/g, '') : null,
+    company: companyMatch ? companyMatch[1].trim() : null,
+    type: isCommercial ? 'commercial' : 'lane1'
+  };
 }
 
 async function syncToHubSpot(lead, token) {
   if (!token) return;
   try {
     var props = { hs_lead_status: 'NEW' };
-    if (lead.name) { var p = lead.name.trim().split(' '); props.firstname = p[0]; props.lastname = p.slice(1).join(' ') || ''; }
+    var nameParts = lead.name.trim().split(' ');
+    props.firstname = nameParts[0];
+    props.lastname = nameParts.slice(1).join(' ') || '';
     if (lead.email) props.email = lead.email;
     if (lead.phone) props.phone = lead.phone;
     if (lead.company) props.company = lead.company;
@@ -94,7 +101,7 @@ async function syncToHubSpot(lead, token) {
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ properties: props })
       });
-      console.log('Updated existing contact:', contactId);
+      console.log('Updated contact:', contactId);
     } else {
       var cr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts', {
         method: 'POST',
@@ -103,48 +110,49 @@ async function syncToHubSpot(lead, token) {
       });
       var cd = await cr.json();
       contactId = cd.id;
-      console.log('Created new contact:', contactId, JSON.stringify(cd).substring(0,100));
+      console.log('Created contact:', contactId);
     }
 
-    if (!contactId) { console.error('No contactId - aborting'); return; }
+    if (!contactId) { console.error('No contactId'); return; }
 
     // Add note
-    var note = 'Lead captured by Tank the Turtle\nType: ' + (lead.type || 'unknown') + '\nSource: seabreezelp.com chat widget' + (lead.company ? '\nCompany: ' + lead.company : '');
+    var note = 'Lead captured by Tank the Turtle\nType: ' + (lead.type || 'unknown') + '\nSource: seabreezelp.com chat widget';
+    if (lead.company) note += '\nCompany: ' + lead.company;
     await fetch('https://api.hubapi.com/crm/v3/objects/notes', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ properties: { hs_note_body: note, hs_timestamp: Date.now().toString() }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] }] })
     });
 
-    // Build lead title: FirstName LastName YYYY-MM
-    var now = new Date();
-    var yyyy = now.getFullYear();
-    var mm = String(now.getMonth() + 1).padStart(2, '0');
-    var nameParts = (lead.name || 'Unknown').trim().split(' ');
-    var firstName = nameParts[0] || '';
-    var lastName = nameParts.slice(1).join(' ') || '';
-    var leadTitle = (firstName + ' ' + lastName + ' ' + yyyy + '-' + mm).trim();
+    // Lead title: FirstName LastName YYYY-MM
+    var d = new Date();
+    var yyyy = d.getFullYear();
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var leadTitle = lead.name + ' ' + yyyy + '-' + mm;
 
-    // Create lead via deals API as HubSpot Leads object (prospecting)
-    // First try the leads endpoint, fall back to deals if needed
-    var leadPayload = {
-      properties: {
-        hs_lead_name: leadTitle,
-        hs_lead_status: 'NEW'
-      },
-      associations: [{
-        to: { id: contactId },
-        types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 578 }]
-      }]
-    };
-
-    var leadRes = await fetch('https://api.hubapi.com/crm/v3/objects/leads', {
+    // Check for existing lead - no duplicates
+    var existingLeadId = null;
+    var lsr = await fetch('https://api.hubapi.com/crm/v3/objects/leads/search', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(leadPayload)
+      body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'hs_lead_name', operator: 'EQ', value: leadTitle }] }], properties: ['hs_lead_name'] })
     });
-    var leadData = await leadRes.json();
-    console.log('Lead create status:', leadRes.status, JSON.stringify(leadData).substring(0, 200));
+    var lsd = await lsr.json();
+    if (lsd.results && lsd.results.length > 0) existingLeadId = lsd.results[0].id;
 
-  } catch(e) { console.error('HubSpot sync error:', e.message); }
+    if (!existingLeadId) {
+      var lr = await fetch('https://api.hubapi.com/crm/v3/objects/leads', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          properties: { hs_lead_name: leadTitle, hs_lead_status: 'NEW' },
+          associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 578 }] }]
+        })
+      });
+      var ld = await lr.json();
+      console.log('Created lead:', ld.id || JSON.stringify(ld).substring(0,150));
+    } else {
+      console.log('Lead already exists, skipping:', existingLeadId);
+    }
+  } catch(e) { console.error('HubSpot error:', e.message); }
 }

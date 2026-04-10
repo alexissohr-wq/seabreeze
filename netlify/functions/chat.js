@@ -70,14 +70,13 @@ async function extractAndLog(convText, apiKey, hubToken) {
 async function syncToHubSpot(lead, token) {
   if (!token) return;
   try {
-    // Step 1: Build contact properties
     var props = { hs_lead_status: 'NEW' };
     if (lead.name) { var p = lead.name.trim().split(' '); props.firstname = p[0]; props.lastname = p.slice(1).join(' ') || ''; }
     if (lead.email) props.email = lead.email;
     if (lead.phone) props.phone = lead.phone;
     if (lead.company) props.company = lead.company;
 
-    // Step 2: Find or create contact (no duplicates by email)
+    // Find or create contact - no duplicates
     var contactId = null;
     if (lead.email) {
       var sr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', {
@@ -90,14 +89,13 @@ async function syncToHubSpot(lead, token) {
     }
 
     if (contactId) {
-      // Update existing contact
       await fetch('https://api.hubapi.com/crm/v3/objects/contacts/' + contactId, {
         method: 'PATCH',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ properties: props })
       });
+      console.log('Updated existing contact:', contactId);
     } else {
-      // Create new contact
       var cr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -105,11 +103,12 @@ async function syncToHubSpot(lead, token) {
       });
       var cd = await cr.json();
       contactId = cd.id;
+      console.log('Created new contact:', contactId, JSON.stringify(cd).substring(0,100));
     }
 
-    if (!contactId) return;
+    if (!contactId) { console.error('No contactId - aborting'); return; }
 
-    // Step 3: Add note to contact
+    // Add note
     var note = 'Lead captured by Tank the Turtle\nType: ' + (lead.type || 'unknown') + '\nSource: seabreezelp.com chat widget' + (lead.company ? '\nCompany: ' + lead.company : '');
     await fetch('https://api.hubapi.com/crm/v3/objects/notes', {
       method: 'POST',
@@ -117,39 +116,35 @@ async function syncToHubSpot(lead, token) {
       body: JSON.stringify({ properties: { hs_note_body: note, hs_timestamp: Date.now().toString() }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] }] })
     });
 
-    // Step 4: Check for existing open lead linked to this contact (no duplicates)
-    var existingLead = null;
-    var lr = await fetch('https://api.hubapi.com/crm/v3/objects/leads/search', {
+    // Build lead title: FirstName LastName YYYY-MM
+    var now = new Date();
+    var yyyy = now.getFullYear();
+    var mm = String(now.getMonth() + 1).padStart(2, '0');
+    var nameParts = (lead.name || 'Unknown').trim().split(' ');
+    var firstName = nameParts[0] || '';
+    var lastName = nameParts.slice(1).join(' ') || '';
+    var leadTitle = (firstName + ' ' + lastName + ' ' + yyyy + '-' + mm).trim();
+
+    // Create lead via deals API as HubSpot Leads object (prospecting)
+    // First try the leads endpoint, fall back to deals if needed
+    var leadPayload = {
+      properties: {
+        hs_lead_name: leadTitle,
+        hs_lead_status: 'NEW'
+      },
+      associations: [{
+        to: { id: contactId },
+        types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 578 }]
+      }]
+    };
+
+    var leadRes = await fetch('https://api.hubapi.com/crm/v3/objects/leads', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filterGroups: [{ filters: [{ propertyName: 'associations.contact', operator: 'EQ', value: contactId }] }],
-        properties: ['hs_lead_status', 'hs_object_id']
-      })
+      body: JSON.stringify(leadPayload)
     });
-    var ld = await lr.json();
-    if (ld.results && ld.results.length > 0) existingLead = ld.results[0].id;
-
-    // Step 5: Only create lead if none exists for this contact
-    if (!existingLead) {
-      var leadLabel = lead.type === 'commercial' ? 'Commercial Inquiry - Tank the Turtle' : 'Propane Delivery Request - Tank the Turtle';
-      var newLead = await fetch('https://api.hubapi.com/crm/v3/objects/leads', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          properties: {
-            hs_lead_name: leadLabel,
-            hs_lead_status: 'NEW',
-            hs_pipeline: 'default'
-          },
-          associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 578 }] }]
-        })
-      });
-      var newLeadData = await newLead.json();
-      console.log('Lead created:', newLeadData.id || JSON.stringify(newLeadData).substring(0, 100));
-    } else {
-      console.log('Lead already exists for contact ' + contactId + ', skipping.');
-    }
+    var leadData = await leadRes.json();
+    console.log('Lead create status:', leadRes.status, JSON.stringify(leadData).substring(0, 200));
 
   } catch(e) { console.error('HubSpot sync error:', e.message); }
 }

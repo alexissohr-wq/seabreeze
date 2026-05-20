@@ -10,6 +10,7 @@ exports.handler = async function(event) {
     const callbackMsg = isBusinessHours
       ? 'Someone will contact you within the hour to complete your propane account application.'
       : 'Someone will contact you within the next business day to complete your propane account application.';
+ 
     const SYS = [
       'You are Tank the Turtle, the friendly AI assistant for Sea Breeze Propane, serving Northeast Florida and the Gainesville area (50-mile radius around zip 32609).',
       'Personality: warm, local, knowledgeable, honest. Never pushy.',
@@ -25,8 +26,7 @@ exports.handler = async function(event) {
       'GUIDELINES: Handle objections directly. 2-4 sentences per response. No bullet points or markdown headers.',
       'Sea Breeze strengths: no hidden fees, local and responsive, military discount available, referral credits available, remote gauge monitoring available - all details shared during callback.'
     ].join(' ');
-
-    // Main Tank response
+ 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
@@ -35,48 +35,56 @@ exports.handler = async function(event) {
     if (!response.ok) return { statusCode: response.status, headers: { 'Access-Control-Allow-Origin': '*' }, body: await response.text() };
     const data = await response.json();
     const text = data.content[0].text;
-
-    // Extract contact info from FULL conversation using Claude - catches multi-turn info
-    const allMessages = [...messages, { role: 'assistant', content: text }];
-    const convText = allMessages.map(function(m) { return m.role.toUpperCase() + ': ' + m.content; }).join('\n');
-    const extractRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 300,
-        messages: [{ role: 'user', content: 'Extract contact info provided by the USER (not the assistant) in this conversation. Return ONLY valid JSON or the word null. Format: {"name":"full name","email":"...","phone":"...","zip":"...","company":"...","type":"lane1 or commercial","consent":true or false}. Only include fields explicitly stated by the user. Phone digits only no formatting.\n\nConversation:\n' + convText }]
-      })
-    });
-
-    let captured = null;
-    if (extractRes.ok) {
-      const ed = await extractRes.json();
-      const et2 = ed.content[0].text.trim();
-      if (et2 !== 'null' && et2.includes('{')) {
-        try {
-          const jm = et2.match(/\{[\s\S]*\}/);
-          if (jm) {
-            const parsed = JSON.parse(jm[0]);
-            if (parsed.name && (parsed.email || parsed.phone)) {
-              captured = parsed;
-              await syncToHubSpot(parsed, process.env.HUBSPOT_TOKEN);
+ 
+    // Only attempt extraction if the full conversation contains BOTH an email AND a phone number
+    // This prevents firing on early partial messages and avoids duplicates
+    const allUserText = messages.filter(function(m) { return m.role === 'user'; }).map(function(m) { return m.content; }).join(' ');
+    const hasEmail = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/.test(allUserText);
+    const hasPhone = /\b\d{3}[\s.\-]?\d{3}[\s.\-]?\d{4}\b/.test(allUserText);
+    const hasConsent = /yes|agree|sure|absolutely/i.test(allUserText);
+ 
+    // Only call extraction when we have email + phone + consent - the complete set
+    if (hasEmail && hasPhone && hasConsent) {
+      const allMessages = [...messages, { role: 'assistant', content: text }];
+      const convText = allMessages.map(function(m) { return m.role.toUpperCase() + ': ' + m.content; }).join('\n');
+      const extractRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 300,
+          messages: [{ role: 'user', content: 'Extract contact info provided by the USER (not the assistant) in this conversation. Return ONLY valid JSON or the word null. Format: {"name":"full name","email":"...","phone":"digits only","zip":"...","company":"...","type":"lane1 or commercial","consent":true}. Only include fields explicitly stated by the user.\n\nConversation:\n' + convText }]
+        })
+      });
+ 
+      if (extractRes.ok) {
+        const ed = await extractRes.json();
+        const et2 = ed.content[0].text.trim();
+        if (et2 !== 'null' && et2.includes('{')) {
+          try {
+            const jm = et2.match(/\{[\s\S]*\}/);
+            if (jm) {
+              const parsed = JSON.parse(jm[0]);
+              // Only log if we have name + email + phone - complete lead
+              if (parsed.name && parsed.email && parsed.phone) {
+                await syncToHubSpot(parsed, process.env.HUBSPOT_TOKEN);
+              }
             }
-          }
-        } catch(e) { console.error('Extract parse error:', e.message); }
+          } catch(e) { console.error('Extract parse error:', e.message); }
+        }
       }
     }
-
+ 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ text: text, captured: !!captured })
+      body: JSON.stringify({ text: text })
     };
   } catch (err) {
     return { statusCode: 500, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: err.message }) };
   }
 };
-
+ 
 async function syncToHubSpot(lead, token) {
   if (!token) return;
   const OWNER_ID = '160505838';
@@ -86,17 +94,16 @@ async function syncToHubSpot(lead, token) {
     if (lead.email) props.email = lead.email;
     if (lead.phone) props.phone = String(lead.phone).replace(/[^0-9]/g,'');
     if (lead.zip) props.zip = lead.zip;
-
+ 
+    // Find or create contact - no duplicates by email
     var contactId = null;
-    if (lead.email) {
-      var sr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', {
-        method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: lead.email }] }] })
-      });
-      var sd = await sr.json();
-      if (sd.results && sd.results.length > 0) contactId = sd.results[0].id;
-    }
-
+    var sr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: lead.email }] }] })
+    });
+    var sd = await sr.json();
+    if (sd.results && sd.results.length > 0) contactId = sd.results[0].id;
+ 
     if (contactId) {
       await fetch('https://api.hubapi.com/crm/v3/objects/contacts/' + contactId, {
         method: 'PATCH', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -111,15 +118,17 @@ async function syncToHubSpot(lead, token) {
       var cd = await cr.json(); contactId = cd.id;
       console.log('Created contact:', contactId);
     }
-
+ 
     if (!contactId) { console.error('No contactId'); return; }
-
-    var note = 'Lead captured by Tank the Turtle\nType: ' + (lead.type||'unknown') + '\nSource: seabreezelp.com chat widget\nConsent: ' + (lead.consent?'Yes':'Pending') + (lead.zip?'\nZip: '+lead.zip:'') + (lead.company?'\nCompany: '+lead.company:'');
+ 
+    // Add note
+    var note = 'Lead captured by Tank the Turtle\nType: ' + (lead.type||'unknown') + '\nSource: seabreezelp.com chat widget\nConsent: Yes' + (lead.zip?'\nZip: '+lead.zip:'') + (lead.company?'\nCompany: '+lead.company:'');
     await fetch('https://api.hubapi.com/crm/v3/objects/notes', {
       method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ properties: { hs_note_body: note, hs_timestamp: Date.now().toString() }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] }] })
     });
-
+ 
+    // Lead title: FirstName LastName YYYY-MM - check for duplicate before creating
     var d2 = new Date();
     var leadTitle = lead.name + ' ' + d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0');
     var lsr = await fetch('https://api.hubapi.com/crm/v3/objects/leads/search', {
@@ -127,8 +136,8 @@ async function syncToHubSpot(lead, token) {
       body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'hs_lead_name', operator: 'EQ', value: leadTitle }] }], properties: ['hs_lead_name'] })
     });
     var lsd = await lsr.json();
-    if (lsd.results && lsd.results.length > 0) { console.log('Lead exists:', lsd.results[0].id); return; }
-
+    if (lsd.results && lsd.results.length > 0) { console.log('Lead exists, skipping:', lsd.results[0].id); return; }
+ 
     var lr = await fetch('https://api.hubapi.com/crm/v3/objects/leads', {
       method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ properties: { hs_lead_name: leadTitle, hubspot_owner_id: OWNER_ID }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 578 }] }] })

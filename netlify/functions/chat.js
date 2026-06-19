@@ -13,7 +13,7 @@ exports.handler = async function(event) {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, system: SYS, messages })
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: SYS, messages })
     });
     if (!response.ok) { const errText = await response.text(); console.error('Anthropic error:', response.status, errText); return { statusCode: response.status, headers: { 'Access-Control-Allow-Origin': '*' }, body: errText }; }
     const data = await response.json();
@@ -32,7 +32,7 @@ exports.handler = async function(event) {
         const extractRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 300, messages: [{ role: 'user', content: 'Extract contact info provided by the USER in this conversation. Return ONLY valid JSON or null. Format: {"name":"full name","email":"...","phone":"digits only","zip":"...","company":"...","type":"lane1 or commercial","consent":true}. Only include fields explicitly stated by the user.\n\nConversation:\n' + convText }] })
+          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300, messages: [{ role: 'user', content: 'Extract contact info provided by the USER in this conversation. Return ONLY valid JSON or null. Format: {"name":"full name","email":"...","phone":"digits only","zip":"...","company":"...","type":"lane1 or commercial","consent":true}. Only include fields explicitly stated by the user.\n\nConversation:\n' + convText }] })
         });
         if (extractRes.ok) {
           const ed = await extractRes.json();

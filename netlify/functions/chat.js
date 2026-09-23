@@ -32,7 +32,7 @@ exports.handler = async function(event) {
         const extractRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300, messages: [{ role: 'user', content: 'Extract contact info provided by the USER in this conversation. Return ONLY valid JSON or null. Format: {"name":"full name","email":"...","phone":"digits only","zip":"...","company":"...","type":"lane1 or commercial","consent":true}. Only include fields explicitly stated by the user.\n\nConversation:\n' + convText }] })
+          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 700, messages: [{ role: 'user', content: 'Extract contact info provided by the USER in this conversation, plus a short briefing for the sales rep who will call them back. Return ONLY valid JSON or null. Format: {"name":"full name","email":"...","phone":"digits only","zip":"...","company":"...","type":"lane1 or commercial","consent":true,"summary":"2-4 sentences","tank":"own or leased or unsure or unknown","appliances":"what they want to run, or empty","urgency":"what they said about timing, or empty"}.\n\nRules for the contact fields: only include what the user explicitly stated. Rules for "summary": write it for a rep who has NOT read the chat, in plain sentences, covering what the customer actually wants, anything relevant about their property or current setup, any tank size discussed, and any objection, concern or deadline they raised. Do not invent details and do not include prices. Leave a field as an empty string if the conversation does not cover it.\n\nConversation:\n' + convText }] })
         });
         if (extractRes.ok) {
           const ed = await extractRes.json();
@@ -40,7 +40,7 @@ exports.handler = async function(event) {
           if (et2 !== 'null' && et2.includes('{')) {
             try {
               const jm = et2.match(/\{[\s\S]*\}/);
-              if (jm) { const parsed = JSON.parse(jm[0]); if (parsed.name && parsed.email && parsed.phone) { await syncToHubSpot(parsed, process.env.HUBSPOT_TOKEN); captured = true; console.log('HubSpot logged:', parsed.name); } }
+              if (jm) { const parsed = JSON.parse(jm[0]); if (parsed.name && parsed.email && parsed.phone) { await syncToHubSpot(parsed, process.env.HUBSPOT_TOKEN, allMessages); captured = true; console.log('HubSpot logged:', parsed.name); } }
             } catch(e) { console.error('Extract parse error:', e.message); }
           }
         }
@@ -49,7 +49,25 @@ exports.handler = async function(event) {
     return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ text: text, captured: captured }) };
   } catch (err) { console.error('Handler error:', err.message); return { statusCode: 500, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: err.message }) }; }
 };
-async function syncToHubSpot(lead, token) {
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+// The widget opens the chat with an internal prompt asking Tank for a greeting.
+// It is not something the customer typed, so keep it out of the rep-facing transcript.
+function isPrimerMessage(m) {
+  return m.role === 'user' && /Give me a warm 1-2 sentence opening as Tank the Turtle/i.test(m.content || '');
+}
+function buildTranscriptHtml(allMessages) {
+  var NOTE_LIMIT = 30000;
+  var lines = (allMessages || []).filter(function(m) { return !isPrimerMessage(m); }).map(function(m) {
+    var who = m.role === 'user' ? 'Customer' : 'Tank';
+    return '<strong>' + who + ':</strong> ' + esc(m.content).split('\n').join('<br>');
+  });
+  var html = lines.join('<br><br>');
+  if (html.length > NOTE_LIMIT) html = html.slice(0, NOTE_LIMIT) + '<br><br><em>[transcript truncated]</em>';
+  return html;
+}
+async function syncToHubSpot(lead, token, allMessages) {
   if (!token) return;
   const OWNER_ID = '160505838';
   try {
@@ -64,7 +82,22 @@ async function syncToHubSpot(lead, token) {
     if (contactId) { await fetch('https://api.hubapi.com/crm/v3/objects/contacts/' + contactId, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: props }) }); console.log('Updated contact:', contactId); }
     else { var cr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: props }) }); var cd = await cr.json(); contactId = cd.id; console.log('Created contact:', contactId); }
     if (!contactId) { console.error('No contactId'); return; }
-    var note = 'Lead captured by Tank the Turtle\nType: ' + (lead.type||'unknown') + '\nSource: seabreezelp.com chat widget\nConsent: Yes' + (lead.zip?'\nZip: '+lead.zip:'') + (lead.company?'\nCompany: '+lead.company:'');
+    var note = '<strong>Lead captured by Tank the Turtle</strong>'
+      + '<br>Type: ' + esc(lead.type || 'unknown')
+      + '<br>Source: seabreezelp.com chat widget'
+      + '<br>Consent: Yes'
+      + (lead.zip ? '<br>Zip: ' + esc(lead.zip) : '')
+      + (lead.company ? '<br>Company: ' + esc(lead.company) : '')
+      + (lead.tank && lead.tank !== 'unknown' ? '<br>Tank: ' + esc(lead.tank) : '')
+      + (lead.appliances ? '<br>Appliances: ' + esc(lead.appliances) : '')
+      + (lead.urgency ? '<br>Timing: ' + esc(lead.urgency) : '');
+    if (lead.summary) {
+      note += '<br><br><strong>What they need</strong><br>' + esc(lead.summary).split('\n').join('<br>');
+    }
+    var transcript = buildTranscriptHtml(allMessages);
+    if (transcript) {
+      note += '<br><br><strong>Full chat transcript</strong><br>' + transcript;
+    }
     await fetch('https://api.hubapi.com/crm/v3/objects/notes', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: { hs_note_body: note, hs_timestamp: Date.now().toString() }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] }] }) });
     var d2 = new Date(); var leadTitle = lead.name + ' ' + d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0');
     var lsr = await fetch('https://api.hubapi.com/crm/v3/objects/leads/search', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'hs_lead_name', operator: 'EQ', value: leadTitle }] }], properties: ['hs_lead_name'] }) });
@@ -73,3 +106,4 @@ async function syncToHubSpot(lead, token) {
     var ld = await lr.json(); console.log('Lead created:', ld.id || JSON.stringify(ld).substring(0,150));
   } catch(e) { console.error('HubSpot error:', e.message); }
 }
+

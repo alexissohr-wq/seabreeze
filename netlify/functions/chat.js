@@ -19,6 +19,11 @@ exports.handler = async function(event) {
     const data = await response.json();
     const text = data.content[0].text;
     let captured = false;
+    // leadStatus makes the outcome of lead capture observable instead of silent.
+    // Values: null (not attempted), lead_created, lead_suppressed_duplicate,
+    // lead_create_failed, hubspot_error, extract_incomplete, extract_parse_error,
+    // extract_no_json, extract_api_error.
+    let leadStatus = null;
     if (!leadLogged) {
       const lastUserMsg = messages.length > 0 ? messages[messages.length - 1].content : '';
       const allUserText = messages.filter(function(m) { return m.role === 'user'; }).map(function(m) { return m.content; }).join(' ');
@@ -40,13 +45,13 @@ exports.handler = async function(event) {
           if (et2 !== 'null' && et2.includes('{')) {
             try {
               const jm = et2.match(/\{[\s\S]*\}/);
-              if (jm) { const parsed = JSON.parse(jm[0]); if (parsed.name && parsed.email && parsed.phone) { await syncToHubSpot(parsed, process.env.HUBSPOT_TOKEN, allMessages); captured = true; console.log('HubSpot logged:', parsed.name); } }
-            } catch(e) { console.error('Extract parse error:', e.message); }
-          }
-        }
+              if (jm) { const parsed = JSON.parse(jm[0]); if (parsed.name && parsed.email && parsed.phone) { leadStatus = await syncToHubSpot(parsed, process.env.HUBSPOT_TOKEN, allMessages); captured = true; console.log('HubSpot logged:', parsed.name, '| result:', leadStatus); } else { leadStatus = 'extract_incomplete'; console.error('Extraction missing name, email or phone:', JSON.stringify(parsed).substring(0,200)); } }
+            } catch(e) { leadStatus = 'extract_parse_error'; console.error('Extract parse error:', e.message, '| raw:', et2.substring(0,300)); }
+          } else { leadStatus = 'extract_no_json'; console.error('Extraction returned no JSON object:', et2.substring(0,300)); }
+        } else { leadStatus = 'extract_api_error'; const eTxt = await extractRes.text(); console.error('Extraction call failed:', extractRes.status, eTxt.substring(0,300)); }
       }
     }
-    return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ text: text, captured: captured }) };
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ text: text, captured: captured, leadStatus: leadStatus }) };
   } catch (err) { console.error('Handler error:', err.message); return { statusCode: 500, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: err.message }) }; }
 };
 function esc(s) {
@@ -98,12 +103,27 @@ async function syncToHubSpot(lead, token, allMessages) {
     if (transcript) {
       note += '<br><br><strong>Full chat transcript</strong><br>' + transcript;
     }
-    await fetch('https://api.hubapi.com/crm/v3/objects/notes', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: { hs_note_body: note, hs_timestamp: Date.now().toString() }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] }] }) });
-    var d2 = new Date(); var leadTitle = lead.name + ' ' + d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0');
+    // De-dup window is ONE DAY, not one calendar month. The bug this guard was added for
+    // was a single chat firing twice; a genuine second inquiry a week later is a real lead
+    // and must not be swallowed. The date is in Eastern time so the window matches a work day.
+    var d2 = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    var leadTitle = lead.name + ' ' + d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0') + '-' + String(d2.getDate()).padStart(2,'0');
+    // Look for the existing lead BEFORE writing the note, so the note can say it was a repeat.
+    var existingLeadId = null;
     var lsr = await fetch('https://api.hubapi.com/crm/v3/objects/leads/search', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'hs_lead_name', operator: 'EQ', value: leadTitle }] }], properties: ['hs_lead_name'] }) });
-    var lsd = await lsr.json(); if (lsd.results && lsd.results.length > 0) { console.log('Lead exists:', lsd.results[0].id); return; }
+    var lsd = await lsr.json();
+    if (lsd.results && lsd.results.length > 0) existingLeadId = lsd.results[0].id;
+    if (existingLeadId) {
+      note += '<br><br><strong>Repeat chat today</strong><br>This customer already has a lead from earlier today (lead ' + esc(existingLeadId) + '), so no second lead was created. The conversation above is from the later chat.';
+    }
+    await fetch('https://api.hubapi.com/crm/v3/objects/notes', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: { hs_note_body: note, hs_timestamp: Date.now().toString() }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] }] }) });
+    if (existingLeadId) { console.log('Lead SUPPRESSED as same-day duplicate. Existing lead:', existingLeadId, '| contact:', contactId, '| note still written'); return 'lead_suppressed_duplicate'; }
     var lr = await fetch('https://api.hubapi.com/crm/v3/objects/leads', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: { hs_lead_name: leadTitle, hubspot_owner_id: OWNER_ID }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 578 }] }] }) });
-    var ld = await lr.json(); console.log('Lead created:', ld.id || JSON.stringify(ld).substring(0,150));
-  } catch(e) { console.error('HubSpot error:', e.message); }
+    var ld = await lr.json();
+    if (!ld.id) { console.error('Lead CREATE FAILED:', JSON.stringify(ld).substring(0,300)); return 'lead_create_failed'; }
+    console.log('Lead created:', ld.id, '| contact:', contactId, '| title:', leadTitle);
+    return 'lead_created';
+  } catch(e) { console.error('HubSpot error:', e.message); return 'hubspot_error'; }
 }
-
+ 
+ 

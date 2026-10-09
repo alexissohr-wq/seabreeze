@@ -126,4 +126,3 @@ async function syncToHubSpot(lead, token, allMessages) {
   } catch(e) { console.error('HubSpot error:', e.message); return 'hubspot_error'; }
 }
  
- 

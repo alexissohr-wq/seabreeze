@@ -22,7 +22,7 @@ exports.handler = async function(event) {
     // leadStatus makes the outcome of lead capture observable instead of silent.
     // Values: null (not attempted), lead_created, lead_suppressed_duplicate,
     // lead_create_failed, hubspot_error, extract_incomplete, extract_parse_error,
-    // extract_no_json, extract_api_error.
+    // extract_no_json, extract_api_error, lead_suppressed_open_lead, contact_failed.
     let leadStatus = null;
     if (!leadLogged) {
       const lastUserMsg = messages.length > 0 ? messages[messages.length - 1].content : '';
@@ -72,21 +72,103 @@ function buildTranscriptHtml(allMessages) {
   if (html.length > NOTE_LIMIT) html = html.slice(0, NOTE_LIMIT) + '<br><br><em>[transcript truncated]</em>';
   return html;
 }
+// ---- Lead owner -------------------------------------------------------------
+// Leads go to Jake, resolved from his email address so nobody has to look up a numeric
+// HubSpot owner id. Set HUBSPOT_OWNER_EMAIL in Netlify to hand leads to someone else
+// without touching this file. OWNER_ID_FALLBACK is used only if the lookup fails, so a
+// lead is never created unassigned.
+const OWNER_EMAIL = process.env.HUBSPOT_OWNER_EMAIL || 'jlindauer@seabreezelp.com';
+const OWNER_ID_FALLBACK = process.env.HUBSPOT_OWNER_ID || '160505838';
+var _ownerIdCache = null;
+async function resolveOwnerId(token) {
+  if (_ownerIdCache) return { id: _ownerIdCache, resolved: true };
+  try {
+    var r = await fetch('https://api.hubapi.com/crm/v3/owners/?email=' + encodeURIComponent(OWNER_EMAIL), { headers: { 'Authorization': 'Bearer ' + token } });
+    var d = await r.json();
+    if (d.results && d.results.length > 0 && d.results[0].id) {
+      _ownerIdCache = String(d.results[0].id); // cache successes only
+      console.log('Lead owner resolved:', OWNER_EMAIL, '->', _ownerIdCache);
+      return { id: _ownerIdCache, resolved: true };
+    }
+    console.error('Owner lookup found nobody for', OWNER_EMAIL, '- using fallback', OWNER_ID_FALLBACK, '|', JSON.stringify(d).substring(0,200));
+  } catch(e) {
+    console.error('Owner lookup failed:', e.message, '- using fallback', OWNER_ID_FALLBACK);
+  }
+  // Fall back so a lead is never created unassigned, but say so in the note too - a silent
+  // fallback is how these leads ended up with the wrong owner in the first place.
+  return { id: OWNER_ID_FALLBACK, resolved: false };
+}
+
+// ---- Source marker for HubSpot alerting -------------------------------------
+// Tank writes leads through the API, so they cannot fire the form notifications that
+// webform leads do. Stamping a property gives HubSpot something a workflow can enroll on.
+// Both are blank until Debbie creates the property, and nothing is stamped while
+// TANK_SOURCE_PROPERTY is empty - writing an unknown property would fail the whole
+// contact write.
+const SOURCE_PROPERTY = process.env.TANK_SOURCE_PROPERTY || '';
+const SOURCE_VALUE = process.env.TANK_SOURCE_VALUE || 'Tank AI Chat';
+
+// ---- Open-lead detection ----------------------------------------------------
+// One OPEN lead per customer. Every lead already attached to this contact is checked; if
+// any is still open, the new chat lands as a note on the contact and no second lead is
+// created. Once a lead reaches a closed stage the next chat opens a fresh one.
+// CLOSED_LEAD_STAGES holds the hs_pipeline_stage ids that count as closed. While it is
+// empty, EVERY existing lead counts as open, which errs toward no duplicates. The stage id
+// of each lead found is logged, so the ids needed to fill this in show up in the logs.
+const CLOSED_LEAD_STAGES = (process.env.CLOSED_LEAD_STAGES || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+async function findOpenLead(contactId, token) {
+  var out = { openLeadId: null, seen: [], lookupFailed: false };
+  try {
+    var ar = await fetch('https://api.hubapi.com/crm/v4/objects/contacts/' + contactId + '/associations/leads', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!ar.ok) { out.lookupFailed = true; console.error('Lead association lookup failed:', ar.status); return out; }
+    var ad = await ar.json();
+    var ids = (ad.results || []).map(function(r){ return r.toObjectId || (r.to && r.to.id); }).filter(Boolean).map(String);
+    if (!ids.length) return out;
+    var br = await fetch('https://api.hubapi.com/crm/v3/objects/leads/batch/read', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: ['hs_pipeline_stage','hs_lead_name'], inputs: ids.map(function(id){ return { id: id }; }) }) });
+    if (!br.ok) { out.lookupFailed = true; console.error('Lead batch read failed:', br.status); return out; }
+    var bd = await br.json();
+    (bd.results || []).forEach(function(l) {
+      var stage = String((l.properties && l.properties.hs_pipeline_stage) || '');
+      out.seen.push(l.id + ' (stage ' + (stage || 'none') + ')');
+      if (!out.openLeadId && CLOSED_LEAD_STAGES.indexOf(stage) === -1) out.openLeadId = l.id;
+    });
+  } catch(e) { out.lookupFailed = true; console.error('Open-lead lookup threw:', e.message); }
+  return out;
+}
+
 async function syncToHubSpot(lead, token, allMessages) {
   if (!token) return;
-  const OWNER_ID = '160505838';
   try {
-    var props = { hubspot_owner_id: OWNER_ID };
+    var owner = await resolveOwnerId(token);
+    var OWNER_ID = owner.id;
+    var phoneDigits = lead.phone ? String(lead.phone).replace(/[^0-9]/g,'') : '';
+    var props = {};
     var np = lead.name.trim().split(' '); props.firstname = np[0]; props.lastname = np.slice(1).join(' ') || '';
     if (lead.email) props.email = lead.email;
-    if (lead.phone) props.phone = String(lead.phone).replace(/[^0-9]/g,'');
+    if (phoneDigits) props.phone = phoneDigits;
     if (lead.zip) props.zip = lead.zip;
+    if (SOURCE_PROPERTY) props[SOURCE_PROPERTY] = SOURCE_VALUE;
+    // Match on email OR phone. Matching on email alone meant one person who gave a
+    // different address on a second chat became a second contact, which is how notes
+    // ended up split across two records.
+    var filterGroups = [{ filters: [{ propertyName: 'email', operator: 'EQ', value: lead.email }] }];
+    if (phoneDigits) filterGroups.push({ filters: [{ propertyName: 'phone', operator: 'EQ', value: phoneDigits }] });
     var contactId = null;
-    var sr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: lead.email }] }] }) });
+    var sr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ filterGroups: filterGroups }) });
     var sd = await sr.json(); if (sd.results && sd.results.length > 0) contactId = sd.results[0].id;
-    if (contactId) { await fetch('https://api.hubapi.com/crm/v3/objects/contacts/' + contactId, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: props }) }); console.log('Updated contact:', contactId); }
-    else { var cr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: props }) }); var cd = await cr.json(); contactId = cd.id; console.log('Created contact:', contactId); }
-    if (!contactId) { console.error('No contactId'); return; }
+    if (contactId) {
+      // Do NOT reassign an existing contact's owner - a repeat customer may already belong
+      // to another rep, and stealing them is worse than a misfiled Tank lead.
+      await fetch('https://api.hubapi.com/crm/v3/objects/contacts/' + contactId, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: props }) });
+      console.log('Updated contact:', contactId);
+    } else {
+      props.hubspot_owner_id = OWNER_ID;
+      var cr = await fetch('https://api.hubapi.com/crm/v3/objects/contacts', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: props }) });
+      var cd = await cr.json(); contactId = cd.id;
+      if (!contactId) console.error('Contact CREATE FAILED:', JSON.stringify(cd).substring(0,300));
+      else console.log('Created contact:', contactId, '| owner:', OWNER_ID);
+    }
+    if (!contactId) { console.error('No contactId'); return 'contact_failed'; }
     var note = '<strong>Lead captured by Tank the Turtle</strong>'
       + '<br>Type: ' + esc(lead.type || 'unknown')
       + '<br>Source: seabreezelp.com chat widget'
@@ -99,30 +181,32 @@ async function syncToHubSpot(lead, token, allMessages) {
     if (lead.summary) {
       note += '<br><br><strong>What they need</strong><br>' + esc(lead.summary).split('\n').join('<br>');
     }
+    if (!owner.resolved) {
+      note += '<br><br><strong>Check lead assignment</strong><br>Could not find a HubSpot user for ' + esc(OWNER_EMAIL) + ', so this was assigned to the fallback owner instead. Someone should fix the owner email or the HubSpot user.';
+    }
     var transcript = buildTranscriptHtml(allMessages);
     if (transcript) {
       note += '<br><br><strong>Full chat transcript</strong><br>' + transcript;
     }
-    // De-dup window is ONE DAY, not one calendar month. The bug this guard was added for
-    // was a single chat firing twice; a genuine second inquiry a week later is a real lead
-    // and must not be swallowed. The date is in Eastern time so the window matches a work day.
     var d2 = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
     var leadTitle = lead.name + ' ' + d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0') + '-' + String(d2.getDate()).padStart(2,'0');
-    // Look for the existing lead BEFORE writing the note, so the note can say it was a repeat.
-    var existingLeadId = null;
-    var lsr = await fetch('https://api.hubapi.com/crm/v3/objects/leads/search', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'hs_lead_name', operator: 'EQ', value: leadTitle }] }], properties: ['hs_lead_name'] }) });
-    var lsd = await lsr.json();
-    if (lsd.results && lsd.results.length > 0) existingLeadId = lsd.results[0].id;
-    if (existingLeadId) {
-      note += '<br><br><strong>Repeat chat today</strong><br>This customer already has a lead from earlier today (lead ' + esc(existingLeadId) + '), so no second lead was created. The conversation above is from the later chat.';
+    // Check for an open lead BEFORE writing the note, so the note can say it was a repeat.
+    var leadLook = await findOpenLead(contactId, token);
+    if (leadLook.seen.length) console.log('Existing leads on contact', contactId + ':', leadLook.seen.join(', '));
+    if (leadLook.openLeadId) {
+      note += '<br><br><strong>Repeat chat - existing open lead</strong><br>This customer already has an open lead (lead ' + esc(leadLook.openLeadId) + '), so no second lead was created and all activity stays on that one. The conversation above is from the later chat.';
     }
     await fetch('https://api.hubapi.com/crm/v3/objects/notes', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: { hs_note_body: note, hs_timestamp: Date.now().toString() }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 202 }] }] }) });
-    if (existingLeadId) { console.log('Lead SUPPRESSED as same-day duplicate. Existing lead:', existingLeadId, '| contact:', contactId, '| note still written'); return 'lead_suppressed_duplicate'; }
+    if (leadLook.openLeadId) { console.log('Lead SUPPRESSED - contact already has open lead', leadLook.openLeadId, '| contact:', contactId, '| note written to contact'); return 'lead_suppressed_open_lead'; }
+    // If the lookup itself failed we create the lead anyway: a duplicate is annoying, a
+    // silently missing lead costs a sale. The log line above says which happened.
+    if (leadLook.lookupFailed) console.error('Creating lead despite failed open-lead lookup - watch for a duplicate on contact', contactId);
     var lr = await fetch('https://api.hubapi.com/crm/v3/objects/leads', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ properties: { hs_lead_name: leadTitle, hubspot_owner_id: OWNER_ID }, associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 578 }] }] }) });
     var ld = await lr.json();
     if (!ld.id) { console.error('Lead CREATE FAILED:', JSON.stringify(ld).substring(0,300)); return 'lead_create_failed'; }
-    console.log('Lead created:', ld.id, '| contact:', contactId, '| title:', leadTitle);
+    console.log('Lead created:', ld.id, '| contact:', contactId, '| owner:', OWNER_ID, '| title:', leadTitle);
     return 'lead_created';
   } catch(e) { console.error('HubSpot error:', e.message); return 'hubspot_error'; }
 }
+ 
  
